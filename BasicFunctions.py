@@ -8,26 +8,28 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 
 def f2K(f):
-	""" Convert focal length to camera intrinsic matrix. """
+    """ Convert focal length to camera intrinsic matrix. """
 
-	K = np.matrix([[f, 0, 0],
-				   [0, f, 0],
-				   [0, 0, 1]], dtype=np.float)
+    K = np.matrix([[f, 0, 0],
+                   [0, f, 0],
+                   [0, 0, 1]], dtype=np.float)
 
-def E2pose(E):
-    """ Convert essential matrix to pose. From H&Z p.258"""
+    return K
+
+def E2Rt(E, matches):
+    """ Convert essential matrix to pose. From H&Z p.258. """
 
     W = np.matrix([[0, -1, 0],
                    [1, 0, 0],
                    [0, 0, 1]], dtype=np.float)
-    Z = np.matrix([[0, 1, 0],
-                   [-1, 0, 0],
-                   [0, 0, 0]], dtype=np.float)
+#    Z = np.matrix([[0, 1, 0],
+#                   [-1, 0, 0],
+#                   [0, 0, 0]], dtype=np.float)
 
     U, D, V = np.linalg.svd(E)
 
     # skew-symmetric translation matrix 
-    #S = U * Z * U.T
+#    S = U * Z * U.T
 
     # two possibilities for R, t
     R1 = U * W * V.T
@@ -37,15 +39,40 @@ def E2pose(E):
     t2 = -U[:, 2]
 
     # ensure positive determinants
-    if np.linalg.det(R1) < 0
+    if np.linalg.det(R1) < 0:
         R1 = -R1
 
-    if np.linalg.det(R2) < 0
+    if np.linalg.det(R2) < 0:
         R2 = -R2
 
+    # extract match points
+    matches1 = []
+    matches2 = []
+    for m in matches:
+        pt1 = np.matrix([kp1[m.queryIdx].pt[1]])
+        matches1.append()
+
+    # test how many points are in front of both cameras
+    Rt1 = np.hstack([R1, t1])
+    Rt2 = np.hstack([R1, t2])
+    Rt3 = np.hstack([R2, t1])
+    Rt4 = np.hstack([R2, t2])
+    
+    Rtbest = None
+    bestCount = -1
+    for Rt in [Rt1, Rt2, Rt3, Rt4]:
+        
 
 
-def drawMatches(img1, kp1, img2, kp2, matches, matchesMask):
+def ij2xy(i, j, shape):
+    """ Convert array indices to xy coordinates. """
+
+    x = j - 0.5*shape[1]
+    y = 0.5*shape[0] - i
+
+    return (x, y)
+
+def drawMatches(img1, kp1, img2, kp2, matches):
     """ Visualize keypoint matches. """
 
     # get dimensions
@@ -60,15 +87,11 @@ def drawMatches(img1, kp1, img2, kp2, matches, matchesMask):
 
     color = (0, 255, 0)
 
-    if matchesMask is None:
-        return
-
     for idx, m in enumerate(matches):
-        if matchesMask[idx] == 1:
-            cv2.line(view, 
-                     (int(kp1[m.queryIdx].pt[0]), int(kp1[m.queryIdx].pt[1])), 
-                     (int(kp2[m.trainIdx].pt[0] + w1), int(kp2[m.trainIdx].pt[1])), 
-                     color)
+        cv2.line(view, 
+                 (int(kp1[m.queryIdx].pt[0]), int(kp1[m.queryIdx].pt[1])), 
+                 (int(kp2[m.trainIdx].pt[0] + w1), int(kp2[m.trainIdx].pt[1])), 
+                 color)
 
     cv2.imshow("Keypoint correspondences", view)
     cv2.waitKey()

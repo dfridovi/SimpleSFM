@@ -58,18 +58,20 @@ for i in range(frames["num_images"] - 1):
             good_matches.append(m)
 
     # estimate F if sufficient good matches
-    if len(good_matches) >= MIN_MATCHES:
-        pts1 = np.array([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1,1,2)
-        pts2 = np.array([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1,1,2)
-
-        F, mask = cv2.findFundamentalMat(pts1, pts2, cv2.RANSAC, 5.0)
-        matchesMask = mask.ravel().tolist()
-    else:
+    if len(good_matches) < MIN_MATCHES:
         print "Did not find enough good matches (%d/%d)" % (len(good),MIN_MATCHES)
         sys.exit(0)
-    
+
+    pts1 = np.array([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1,1,2)
+    pts2 = np.array([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1,1,2)
+
+    F, mask = cv2.findFundamentalMat(pts1, pts2, cv2.RANSAC, 5.0)
+    matchesMask = mask.ravel().tolist()
+    inliers = [m for m, keep in zip(good_matches, matchesMask) if keep == 1]
+
     if visualize:
-        bf.drawMatches(img1, kp1, img2, kp2, good_matches, matchesMask)
+        bf.drawMatches(img1, kp1, img2, kp2, inliers)
 
     # get E from F and convert to poses
-    
+    E = frames["K"].T * F * frames["K"]
+#    Rt = bf.E2Rt(E, inliers)
