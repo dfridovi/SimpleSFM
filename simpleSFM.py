@@ -22,7 +22,7 @@ frames = {}
 frames["images"] = np.array(files)
 frames["focal_length"] = 4100.0 / 1.4
 frames["imsize"] = (2448, 3264)
-frames["K"] = bf.f2K(frames["focal_length"])
+frames["K"] = bf.f2K(frames["focal_length"], frames["imsize"])
 frames["num_images"] = len(files)
 
 # make an ORB detector
@@ -74,4 +74,6 @@ for i in range(frames["num_images"] - 1):
 
     # get E from F and convert to poses
     E = frames["K"].T * F * frames["K"]
-#    Rt = bf.E2Rt(E, inliers)
+    Rt = bf.E2Rt(E, kp1, kp2, inliers)
+
+    print Rt
