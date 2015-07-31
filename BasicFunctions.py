@@ -98,37 +98,55 @@ def updateGraph(graph, Rt, pts3D):
     # insert 3D points, checking for matches with existing points
     for X, matches in pts3D.iteritems():
         m1, m2 = matches
+        oldKey = (m1[1], m1[2])
+        newKey = (m2[1], m2[2])
 
         # if there's a match, update that entry
-        if m1 in graph["3Dmatches"]:
-            entry = graph["3Dmatches"][lookup]
-            entry["frames"].append(m1[2])
-            entry["2Dlocs"].append(m1[0])
+        if oldKey in graph["3Dmatches"]:
+            entry = graph["3Dmatches"][oldKey]
+            entry["frames"].append(m2[2])
+            entry["2Dlocs"].append(m2[0])
             entry["3Dlocs"].append(X)
 
-            del graph["3Dmatches"][m1]
-            graph["3Dmatches"][m2] = entry
+            del graph["3Dmatches"][oldKey]
+            graph["3Dmatches"][newKey] = entry
 
         # otherwise, create new entry
         else:
-            entry = {"frames" : [m1[2]],
-                     "2Dlocs" : [m1[0]],
+            entry = {"frames" : [m1[2], m2[2]],
+                     "2Dlocs" : [m1[0], m2[0]],
                      "3Dlocs" : [X]}
-            graph["3Dmatches"][m2] = entry
+            graph["3Dmatches"][newKey] = entry
+
+def finalizeGraph(graph):
+    """ Replace the 3Dlocs list with the its average for each entry. """
+
+    for key, entry in graph["3Dmatches"].iteritems():
+        tot = 0
+        
+        for X in entry["3Dlocs"]:
+            tot += X
+
+        avg = tot / len(entry["3Dlocs"])
+        entry["3Dlocs"] = avg
+
+def bundleAdjustment(graph):
+    """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
 
 def printGraphStats(graph):
     """ Compute and display summary statistics for graph dictionary. """
 
-    print "Number of frames: " + str(len(graph["motion"]))
+    print "\nNumber of frames: " + str(len(graph["motion"]))
     print "Number of 3D points: " + str(len(graph["3Dmatches"].keys()))
 
-    # count multiple correspondences
+    # count multiple correspondence
     cnt = 0
     for key, entry in graph["3Dmatches"].iteritems():
-        if len(entry["frames"]) > 1:
+        if len(entry["frames"]) > 2:
             cnt += 1
 
     print "Number of 3D points with >1 correspondence(s): " + str(cnt)
+    print ""
 
 def inFront(P, X):
     """ Return true if X is in front of the camera. """

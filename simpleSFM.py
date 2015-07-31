@@ -28,7 +28,7 @@ frames["num_images"] = len(files)
 # graph dictionary
 # -- motion is the frame-to-frame estimate of [R|t]
 # -- 3Dmatches maps 3D points to 2D points in specific frames via a dictionary
-#    whose keys are the tuple (xy_loc, kp_idx, most_recent_frame) and values are
+#    whose keys are the tuple (kp_idx, most_recent_frame) and values are
 #    the dict ([previous_frames], [xy_positions], [3D_estimates])
 graph = {}
 graph["motion"] = [np.matrix(np.hstack([np.eye(3), np.zeros((3, 1))]))]
@@ -88,4 +88,7 @@ for i in range(1, frames["num_images"]):
     # add Rt and 3D pts to graph
     bf.updateGraph(graph, Rt, pts3D)
 
+# do bundle adjustment
 bf.printGraphStats(graph)
+bf.finalizeGraph(graph)
+
