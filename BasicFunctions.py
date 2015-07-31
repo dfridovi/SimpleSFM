@@ -16,7 +16,7 @@ def f2K(f, shape):
 
     return K
 
-def E2Rt(E, K, kp1, kp2, matches):
+def E2Rt(E, K, frameIdx, kp1, kp2, matches):
     """ Convert essential matrix to pose. From H&Z p.258. """
 
     W = np.matrix([[0, -1, 0],
@@ -50,10 +50,10 @@ def E2Rt(E, K, kp1, kp2, matches):
     matches2 = []
     for m in matches:
         pt1 = np.matrix([kp1[m.queryIdx].pt[1], kp1[m.queryIdx].pt[0], 1]).T
-        matches1.append(pt1)
+        matches1.append((pt1, m.queryIdx, frameIdx))
 
         pt2 = np.matrix([kp2[m.trainIdx].pt[1], kp2[m.trainIdx].pt[0], 1]).T
-        matches2.append(pt2)
+        matches2.append((pt2, m.trainIdx, frameIdx + 1))
 
     # create four possible new camera matrices and original
     Rt0 = np.matrix(np.hstack([np.eye(3), np.zeros((3, 1))]))
@@ -69,13 +69,13 @@ def E2Rt(E, K, kp1, kp2, matches):
     for Rt in [Rt1, Rt2, Rt3, Rt4]:
 
         cnt = 0
-        pts3D = []
+        pts3D = {}
         for m1, m2 in zip(matches1, matches2):
 
             # use least squares triangulation
-            X = triangulateLS(Rt0, Rt, m1, m2, K)
+            X = triangulateLS(Rt0, Rt, m1[0], m2[0], K)
             x = fromHomogenous(X)
-            pts3D.append(x)
+            pts3D[x] = (m1, m2)
 
             # test if in front of both cameras
             if inFront(Rt0, x) and inFront(Rt, x):
@@ -92,11 +92,29 @@ def E2Rt(E, K, kp1, kp2, matches):
 def updateGraph(graph, Rt, pts3D):
     """ Update graph dictionary with new pose and 3D points. """
 
-    """
-    WRITE THIS!!!
-    """
+    # append new pose
+    graph["motion"].append(Rt)
 
-    pass
+    # insert 3D points, checking for matches with existing points
+    for X, matches in pts3D.iteritems():
+        m1, m2 = matches
+
+        # if there's a match, update that entry
+        if m1 in graph["3Dmatches"]:
+            entry = graph["3Dmatches"][lookup]
+            entry["frames"].append(m1[2])
+            entry["2Dlocs"].append(m1[0])
+            entry["3Dlocs"].append(X)
+
+            del graph["3Dmatches"][m1]
+            graph["3Dmatches"][m2] = entry
+
+        # otherwise, create new entry
+        else:
+            entry = {"frames" : [m1[2]],
+                     "2Dlocs" : [m1[0]],
+                     "3Dlocs" : [X]}
+            graph["3Dmatches"][m2] = entry
 
 def inFront(P, X):
     """ Return true if X is in front of the camera. """
