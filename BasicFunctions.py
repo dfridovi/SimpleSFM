@@ -116,6 +116,20 @@ def updateGraph(graph, Rt, pts3D):
                      "3Dlocs" : [X]}
             graph["3Dmatches"][m2] = entry
 
+def printGraphStats(graph):
+    """ Compute and display summary statistics for graph dictionary. """
+
+    print "Number of frames: " + str(len(graph["motion"]))
+    print "Number of 3D points: " + str(len(graph["3Dmatches"].keys()))
+
+    # count multiple correspondences
+    cnt = 0
+    for key, entry in graph["3Dmatches"].iteritems():
+        if len(entry["frames"]) > 1:
+            cnt += 1
+
+    print "Number of 3D points with >1 correspondence(s): " + str(cnt)
+
 def inFront(P, X):
     """ Return true if X is in front of the camera. """
 

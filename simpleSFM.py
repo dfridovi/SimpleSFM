@@ -88,4 +88,4 @@ for i in range(1, frames["num_images"]):
     # add Rt and 3D pts to graph
     bf.updateGraph(graph, Rt, pts3D)
 
-print graph
+bf.printGraphStats(graph)
