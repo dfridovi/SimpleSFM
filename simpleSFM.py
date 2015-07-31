@@ -25,6 +25,13 @@ frames["imsize"] = (2448, 3264)
 frames["K"] = bf.f2K(frames["focal_length"], frames["imsize"])
 frames["num_images"] = len(files)
 
+# graph dictionary
+# -- motion is the frame-to-frame estimate of [R|t]
+# -- 3Dmatches maps 3D points to 2D points in specific frames
+graph = {}
+graph["motion"] = [np.matrix(np.hstack([np.eye(3), np.zeros((3, 1))]))]
+graph["3Dmatches"] = {}
+
 # make an ORB detector
 orb = cv2.ORB()
 
@@ -32,11 +39,11 @@ orb = cv2.ORB()
 matcher = cv2.BFMatcher(normType=cv2.NORM_HAMMING)
 
 # for adjacent frames, detect ORB keypoints and extimate F
-for i in range(frames["num_images"] - 1):
+for i in range(1, frames["num_images"]):
 
     # read in images
-    img1 = cv2.imread(IMPATH + frames["images"][i])
-    img2 = cv2.imread(IMPATH + frames["images"][i + 1])
+    img1 = cv2.imread(IMPATH + frames["images"][i - 1])
+    img2 = cv2.imread(IMPATH + frames["images"][i])
 
     img1 = np.flipud(np.fliplr(cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)))
     img2 = np.flipud(np.fliplr(cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)))
@@ -72,8 +79,9 @@ for i in range(frames["num_images"] - 1):
     if visualize:
         bf.drawMatches(img1, kp1, img2, kp2, inliers)
 
-    # get E from F and convert to poses
+    # get E from F and convert to poses, and get 3D pts
     E = frames["K"].T * F * frames["K"]
-    Rt = bf.E2Rt(E, kp1, kp2, inliers)
+    Rt, pts3D = bf.E2Rt(E, frames["K"], kp1, kp2, inliers)
 
-    print Rt
+    # add Rt and 3D pts to graph
+    bf.updateGraph(graph, Rt, pts3D)

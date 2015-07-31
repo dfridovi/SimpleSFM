@@ -16,7 +16,7 @@ def f2K(f, shape):
 
     return K
 
-def E2Rt(E, kp1, kp2, matches):
+def E2Rt(E, K, kp1, kp2, matches):
     """ Convert essential matrix to pose. From H&Z p.258. """
 
     W = np.matrix([[0, -1, 0],
@@ -63,16 +63,19 @@ def E2Rt(E, kp1, kp2, matches):
     Rt4 = np.hstack([R2, t2])
 
     # test how many points are in front of both cameras    
-    Rtbest = None
+    bestRt = None
     bestCount = -1
+    bestPts3D = None
     for Rt in [Rt1, Rt2, Rt3, Rt4]:
 
         cnt = 0
+        pts3D = []
         for m1, m2 in zip(matches1, matches2):
 
             # use least squares triangulation
-            X = triangulateLS(Rt0, Rt, m1, m2)
+            X = triangulateLS(Rt0, Rt, m1, m2, K)
             x = fromHomogenous(X)
+            pts3D.append(x)
 
             # test if in front of both cameras
             if inFront(Rt0, x) and inFront(Rt, x):
@@ -81,9 +84,19 @@ def E2Rt(E, kp1, kp2, matches):
         # update best camera/cnt
         if cnt > bestCount:
             bestCount = cnt
-            Rtbest = Rt
+            bestRt = Rt
+            bestPts3D = pts3D
 
-    return Rtbest
+    return bestRt, bestPts3D
+
+def updateGraph(graph, Rt, pts3D):
+    """ Update graph dictionary with new pose and 3D points. """
+
+    """
+    WRITE THIS!!!
+    """
+
+    pass
 
 def inFront(P, X):
     """ Return true if X is in front of the camera. """
@@ -95,13 +108,13 @@ def inFront(P, X):
         return True
     return False 
 
-def triangulateLS(P1, P2, x1, x2):
+def triangulateLS(Rt1, Rt2, x1, x2, K):
     """ 
     Triangulate a least squares 3D point given two camera matrices
     and the point correspondence in homogeneous coordinates.
     """
     
-    A = np.vstack([P1, P2])
+    A = np.vstack([K * Rt1, K * Rt2])
     b = np.vstack([x1, x2])
     X = np.linalg.lstsq(A, b)[0]
 
