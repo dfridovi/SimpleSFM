@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
+from scipy.optimize import basinhopping
 
 def f2K(f, shape):
     """ Convert focal length to camera intrinsic matrix. """
@@ -119,19 +120,84 @@ def updateGraph(graph, Rt, pts3D):
             graph["3Dmatches"][newKey] = entry
 
 def finalizeGraph(graph):
-    """ Replace the 3Dlocs list with the its average for each entry. """
+    """ 
+    Replace the 3Dlocs list with the its average for each entry.
+    """
 
+    pts3D = []
     for key, entry in graph["3Dmatches"].iteritems():
+        
+        # compute average
         tot = 0
         
         for X in entry["3Dlocs"]:
             tot += X
 
         avg = tot / len(entry["3Dlocs"])
-        entry["3Dlocs"] = avg
 
-def bundleAdjustment(graph):
+        # append entry to list
+        pts3D.append((avg, entry["frames"], entry["2Dlocs"]))
+
+    # update
+    graph["3Dmatches"] = pts3D
+
+def bundleAdjustment(graph, K):
     """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
+
+    # unpack graph parameters into 1D array for initial guess
+    num_frames = len(graph["motion"])
+    x0, views, pts2D = unpackGraph(graph)
+
+    # run basinhopping algorithm
+    minimizer_kwargs = {"method" : "Nelder-Mead", "args" : (K, views, pts2D)}
+    result = basinhopping(reprojectionError, x0, 
+                          minimizer_kwargs=minimizer_kwargs, niter=200)
+
+    # repack into graph
+    optimized_pts3D = extract3DPts(result.x, num_frames)
+    return optimized_graph
+
+def unpackGraph(graph):
+    """ Extract parameters for optimization. """
+
+    # extract motion parameters
+    motion = np.array(graph["motion"]).ravel()
+
+    # extract frame parameters as array for all frames at each point
+    views = []
+    pts3D = []
+    pts2D = []
+
+    for pt in graph["3Dmatches"]:
+        views.append(pt[1])
+        pts3D.append(pt[0])
+        pts2D.append(pt[2])
+
+    structure = np.array(pts3D).ravel()
+
+    # concatenate arrays and return
+    x0 = np.hstack(motion, structure)
+
+    return x0, views, pts2D
+
+
+def reprojectionError(x, K, views, pts2D):
+    """ Compute reprojection error for the graph with these parameters. """
+
+    """
+    WRITE THIS!!!
+    """
+
+    pass
+
+def extract3DPts(x, num_frames):
+    """ Extract 3D points from parameter vector. """
+
+    """
+    WRITE THIS!!!
+    """
+
+    pass
 
 def printGraphStats(graph):
     """ Compute and display summary statistics for graph dictionary. """

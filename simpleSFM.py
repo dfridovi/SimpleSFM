@@ -92,3 +92,4 @@ for i in range(1, frames["num_images"]):
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph)
 
+optimized_graph = bf.bundleAdjustment(graph, frames["K"])
