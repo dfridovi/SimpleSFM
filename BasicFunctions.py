@@ -17,7 +17,7 @@ def f2K(f, shape):
 
     return K
 
-def E2Rt(E, K, frameIdx, kp1, kp2, matches):
+def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
     """ Convert essential matrix to pose. From H&Z p.258. """
 
     W = np.matrix([[0, -1, 0],
@@ -56,12 +56,18 @@ def E2Rt(E, K, frameIdx, kp1, kp2, matches):
         pt2 = np.matrix([kp2[m.trainIdx].pt[1], kp2[m.trainIdx].pt[0], 1]).T
         matches2.append((pt2, m.trainIdx, frameIdx + 1))
 
-    # create four possible new camera matrices and original
-    Rt0 = np.matrix(np.hstack([np.eye(3), np.zeros((3, 1))]))
+    # create four possible new camera matrices
     Rt1 = np.hstack([R1, t1])
     Rt2 = np.hstack([R1, t2])
     Rt3 = np.hstack([R2, t1])
     Rt4 = np.hstack([R2, t2])
+
+    # transform each Rt to be relative to baseRt
+    baseRt4x4 = np.vstack([baseRt, np.matrix([0, 0, 0, 1], dtype=np.float)])
+    Rt1 = Rt1 * baseRt4x4
+    Rt2 = Rt2 * baseRt4x4
+    Rt3 = Rt3 * baseRt4x4
+    Rt4 = Rt4 * baseRt4x4
 
     # test how many points are in front of both cameras    
     bestRt = None
@@ -74,12 +80,12 @@ def E2Rt(E, K, frameIdx, kp1, kp2, matches):
         for m1, m2 in zip(matches1, matches2):
 
             # use least squares triangulation
-            X = triangulateLS(Rt0, Rt, m1[0], m2[0], K)
+            X = triangulateLS(baseRt, Rt, m1[0], m2[0], K)
             x = fromHomogenous(X)
             pts3D[x] = (m1, m2)
 
             # test if in front of both cameras
-            if inFront(Rt0, x) and inFront(Rt, x):
+            if inFront(baseRt, x) and inFront(Rt, x):
                 cnt += 1
 
         # update best camera/cnt
@@ -88,6 +94,7 @@ def E2Rt(E, K, frameIdx, kp1, kp2, matches):
             bestRt = Rt
             bestPts3D = pts3D
 
+    print "Found %d of %d possible 3D points in front of both cameras." % (bestCount, len(matches1))
     return bestRt, bestPts3D
 
 def updateGraph(graph, Rt, pts3D):

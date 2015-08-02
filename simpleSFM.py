@@ -40,6 +40,9 @@ orb = cv2.ORB()
 # make a brute force matcher
 matcher = cv2.BFMatcher(normType=cv2.NORM_HAMMING)
 
+# keep track of last camera pose
+lastRt = graph["motion"][0]
+
 # for adjacent frames, detect ORB keypoints and extimate F
 for i in range(1, frames["num_images"]):
 
@@ -83,13 +86,15 @@ for i in range(1, frames["num_images"]):
 
     # get E from F and convert to poses, and get 3D pts
     E = frames["K"].T * F * frames["K"]
-    Rt, pts3D = bf.E2Rt(E, frames["K"], i-1, kp1, kp2, inliers)
+    Rt, pts3D = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
+    lastRt = Rt
 
     # add Rt and 3D pts to graph
     bf.updateGraph(graph, Rt, pts3D)
+    print Rt
 
 # do bundle adjustment
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph)
 
-optimized_graph = bf.bundleAdjustment(graph, frames["K"])
+#optimized_graph = bf.bundleAdjustment(graph, frames["K"])
