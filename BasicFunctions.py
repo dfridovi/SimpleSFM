@@ -167,8 +167,8 @@ def bundleAdjustment(graph, K):
 def unpackGraph(graph):
     """ Extract parameters for optimization. """
 
-    # extract motion parameters
-    motion = np.array(graph["motion"]).ravel()
+    # extract motion parameters, except initial pose
+    motion = np.array(graph["motion"])[1:].ravel()
 
     # extract frame parameters as array for all frames at each point
     views = []
@@ -200,11 +200,30 @@ def reprojectionError(x, K, views, pts2D):
 def extract3DPts(x, num_frames):
     """ Extract 3D points from parameter vector. """
 
-    """
-    WRITE THIS!!!
-    """
+    # only consider the entries of x representing 3D structure
+    offset = (num_frames - 1) * 12
+    structure = x[offset:]
 
-    pass
+    # repack structure into 3D points
+    num_pts = len(structure) / 3
+    pts3D = np.hsplit(np.matrix(np.split(structure, num_pts)).T, num_pts)
+
+    return pts3D
+
+def extractPoses(x, num_frames):
+    """ Extract camera poses from parameter vector. """
+
+    # only consider the entries of x representing poses
+    offset = (num_frames - 1) * 12
+    motion = x[:offset]
+
+    # repack motion into 3x4 pose matrices
+    pose_arrays = np.split(motion, num_frames - 1)
+    pose_matrices = []
+    for p in pose_arrays:
+        pose_matrices.append(np.matrix(p.reshape((3, 4))))
+
+    return pose_matrices
 
 def printGraphStats(graph):
     """ Compute and display summary statistics for graph dictionary. """
@@ -250,6 +269,13 @@ def fromHomogenous(X):
     x /= X[-1]
 
     return x
+
+def toHomogenous(x):
+    """ Transform a point from normal to homogenous coordinates. """
+
+    X = np.vstack([x, 1])
+
+    return X
 
 def ij2xy(i, j, shape):
     """ Convert array indices to xy coordinates. """
