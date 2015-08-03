@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
-from scipy.optimize import basinhopping
+from scipy.optimize import leastsq
 
 def f2K(f, shape):
     """ Convert focal length to camera intrinsic matrix. """
@@ -151,21 +151,18 @@ def finalizeGraph(graph):
 def bundleAdjustment(graph, K):
     """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
 
-    print "Running bundle adjustment..."
-
     # unpack graph parameters into 1D array for initial guess
     num_frames = len(graph["motion"])
     x0, views, pts2D = unpackGraph(graph)
 
-    # run basinhopping algorithm
-    minimizer_kwargs = {"method" : "Nelder-Mead", 
-                        "args" : (K, views, pts2D, num_frames)}
-    result = basinhopping(reprojectionError, x0, 
-                          T=1000.0, minimizer_kwargs=minimizer_kwargs, 
-                          niter=200, disp=True)
+    # run Levenberg-Marquardt algorithm
+    print "Running bundle adjustment..."
+
+    args = (K, views, pts2D, num_frames)
+    result = leastsq(reprojectionError, x0, args=args)
 
     # get 3D points
-    optimized_pts3D = extractStructure(result.x, num_frames)
+    optimized_pts3D = extractStructure(result, num_frames)
     return optimized_pts3D
 
 def unpackGraph(graph):
@@ -201,7 +198,7 @@ def unpackGraph(graph):
 
     # concatenate motion/structure arrays
     x0 = np.hstack([motion, structure])
-
+    
     # create 2D point matrix and view matrix
     pts2D_matrix = np.matrix(np.zeros((2 * len(graph["motion"]), len(pts3D))))
     view_matrix = np.matrix(np.zeros((2 * len(graph["motion"]), len(pts3D)), 
@@ -236,10 +233,8 @@ def reprojectionError(x, K, view_matrix, pts2D_matrix, num_frames):
     diff = pts2D_matrix - proj_matrix
     diff[view_matrix is not True] = 0
 
-    total_error = np.multiply(diff, diff).sum()
-
-#    print "Total reprojection error: " + str(total_error)
-    return total_error
+    error = np.array(diff).ravel()
+    return error
 
 def toAxisAngle(R):
     """ 
