@@ -197,6 +197,48 @@ def reprojectionError(x, K, views, pts2D):
 
     pass
 
+def toAxisAngle(R):
+    """ 
+    Decompose rotation R to axis-angle representation, where the angle,
+    in radians, is given as the magnitude of the axis vector.
+    """
+
+    # extract 1-eigenvector
+    U, V = np.linalg.eig(R)
+    axis = np.array(np.real(V[:, np.where(U == 1)[0]]).T)[0]
+
+    # try both possible angles
+    angle1 = np.arccos(0.5 * (np.trace(R) - 1))
+    angle2 = 2 * np.pi - angle1
+
+    R1 = fromAxisAngle(axis * angle1)
+    R2 = fromAxisAngle(axis * angle2)
+
+    err1 = R - R1
+    err2 = R - R2
+
+    if np.multiply(err1, err1).sum() < np.multiply(err2, err2).sum():
+        return axis * angle1
+    return axis * angle2
+
+def fromAxisAngle(r):
+    """ Convert axis-angle representation to full rotation matrix. """
+
+    # from https://en.wikipedia.org/wiki/Rotation_matrix
+    angle = np.sqrt(np.multiply(r, r).sum())
+    axis = r / angle
+
+    cross = np.matrix([[0, -axis[2], axis[1]],
+                       [axis[2], 0, -axis[0]],
+                       [-axis[1], axis[0], 0]], dtype=np.float)
+    tensor = np.matrix([[axis[0]**2, axis[0]*axis[1], axis[0]*axis[2]],
+                        [axis[0]*axis[1], axis[1]**2, axis[1]*axis[2]],
+                        [axis[0]*axis[2], axis[1]*axis[2], axis[2]**2]], dtype=np.float)
+
+    R = np.cos(angle)*np.eye(3) + np.sin(angle)*cross + (1-np.cos(angle))*tensor
+ 
+    return R
+
 def extract3DPts(x, num_frames):
     """ Extract 3D points from parameter vector. """
 
