@@ -8,11 +8,13 @@ import numpy as np
 import matplotlib.image 
 import cv2
 import matplotlib.pyplot as plt
+import cPickle as pickle
 
 # parameters
 visualize = False
 RATIO = 0.2
 MIN_MATCHES = 20
+PKLFILE = "pts3D.pkl"
 
 # set up
 IMPATH = "Images/"
@@ -31,7 +33,7 @@ frames["num_images"] = len(files)
 #    whose keys are the tuple (kp_idx, most_recent_frame) and values are
 #    the dict ([previous_frames], [xy_positions], [3D_estimates])
 graph = {}
-graph["motion"] = [np.matrix(np.hstack([np.eye(3), np.zeros((3, 1))]))]
+graph["motion"] = [bf.basePose()]
 graph["3Dmatches"] = {}
 
 # make an ORB detector
@@ -97,4 +99,7 @@ for i in range(1, frames["num_images"]):
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph)
 
-#optimized_graph = bf.bundleAdjustment(graph, frames["K"])
+optimized_pts3D = bf.bundleAdjustment(graph, frames["K"])
+f = open(PKLFILE, "wb")
+pickle.dump(optimized_pts3D, f)
+f.close()
