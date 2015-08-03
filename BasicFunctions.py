@@ -151,6 +151,8 @@ def finalizeGraph(graph):
 def bundleAdjustment(graph, K):
     """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
 
+    print "Running bundle adjustment..."
+
     # unpack graph parameters into 1D array for initial guess
     num_frames = len(graph["motion"])
     x0, views, pts2D = unpackGraph(graph)
@@ -159,7 +161,7 @@ def bundleAdjustment(graph, K):
     minimizer_kwargs = {"method" : "Nelder-Mead", 
                         "args" : (K, views, pts2D, num_frames)}
     result = basinhopping(reprojectionError, x0, 
-                          T=100.0, minimizer_kwargs=minimizer_kwargs, 
+                          T=1000.0, minimizer_kwargs=minimizer_kwargs, 
                           niter=200, disp=True)
 
     # get 3D points
@@ -168,6 +170,8 @@ def bundleAdjustment(graph, K):
 
 def unpackGraph(graph):
     """ Extract parameters for optimization. """
+
+    print "Unpacking graph for optimization..."
 
     # extract motion parameters, except initial pose
     poses = graph["motion"][1:]
@@ -179,7 +183,7 @@ def unpackGraph(graph):
         # convert to axis-angle format and concatenate
         r = toAxisAngle(R)
         motion.append(r)
-        motion.append(np.array(t)[0])
+        motion.append(np.array(t.T)[0])
 
     motion = np.hstack(motion)
 
@@ -195,28 +199,46 @@ def unpackGraph(graph):
 
     structure = np.array(pts3D).ravel()
 
-    # concatenate arrays and return
+    # concatenate motion/structure arrays
     x0 = np.hstack([motion, structure])
 
-    return x0, np.array(views), np.array(pts2D)
+    # create 2D point matrix and view matrix
+    pts2D_matrix = np.matrix(np.zeros((2 * len(graph["motion"]), len(pts3D))))
+    view_matrix = np.matrix(np.zeros((2 * len(graph["motion"]), len(pts3D)), 
+                                     dtype=np.bool))
 
-def reprojectionError(x, K, views, pts2D, num_frames):
+    for i, (frames, pts) in enumerate(zip(views, pts2D)):
+        for frame, pt in zip(frames, pts):
+            pts2D_matrix[2 * frame:2 * (frame+1), i] = pt
+            view_matrix[2 * frame:2 * (frame+1), i] = True
+
+    return x0, view_matrix, pts2D_matrix
+
+def reprojectionError(x, K, view_matrix, pts2D_matrix, num_frames):
     """ Compute reprojection error for the graph with these parameters. """
 
     # unpack parameter vector
-    motion = extractMotion(x, num_frames)
-    structure = extractStructure(x, num_frames)
+    motion_matrix = extractMotion(x, K, num_frames)
+    structure_matrix = extractStructure(x, num_frames)
 
-    # for each 3D point, compute reprojection error in all associated frames
-    total_error = 0
-    for i, pt3D in enumerate(structure):
-        for frame, pt2D in zip(views[i], pts2D[i]):
+    # project all 3D points into all frames
+    proj_matrix = motion_matrix * toHomogenous(structure_matrix)
 
-            P = K * motion[frame]
-            err = fromHomogenous(P*toHomogenous(pt3D)) - pt2D
+    # de-homogenize all points
+    frames = np.vsplit(proj_matrix, num_frames)
+    dehomogenized_frames = []
+    for f in frames:
+        dehomogenized_frames.append(fromHomogenous(f))
 
-            total_error += np.multiply(err, err).sum()
+    proj_matrix = np.vstack(dehomogenized_frames)
 
+    # compute error
+    diff = pts2D_matrix - proj_matrix
+    diff[view_matrix is not True] = 0
+
+    total_error = np.multiply(diff, diff).sum()
+
+#    print "Total reprojection error: " + str(total_error)
     return total_error
 
 def toAxisAngle(R):
@@ -262,7 +284,7 @@ def fromAxisAngle(r):
     return R
 
 def extractStructure(x, num_frames):
-    """ Extract 3D points from parameter vector. """
+    """ Extract 3D points (as a single large matrix) from parameter vector. """
 
     # only consider the entries of x representing 3D structure
     offset = (num_frames - 1) * 6
@@ -270,12 +292,15 @@ def extractStructure(x, num_frames):
 
     # repack structure into 3D points
     num_pts = len(structure) / 3
-    pts3D = np.hsplit(np.matrix(np.split(structure, num_pts)).T, num_pts)
+    pts3D_matrix = np.matrix(structure.reshape(-1, 3)).T
+ 
+    return pts3D_matrix
 
-    return pts3D
-
-def extractMotion(x, num_frames):
-    """ Extract camera poses from parameter vector, including implicit base pose. """
+def extractMotion(x, K, num_frames):
+    """ 
+    Extract camera poses (as a single large matrix) from parameter vector, 
+    including implicit base pose. 
+    """
 
     # only consider the entries of x representing poses
     offset = (num_frames - 1) * 6
@@ -291,9 +316,9 @@ def extractMotion(x, num_frames):
         t = p[3:]
 
         R = fromAxisAngle(r)
-        pose_matrices.append(np.hstack([R, np.matrix(t).T]))
+        pose_matrices.append(K * np.hstack([R, np.matrix(t).T]))
 
-    return np.array(pose_matrices)
+    return np.vstack(pose_matrices)
 
 def printGraphStats(graph):
     """ Compute and display summary statistics for graph dictionary. """
@@ -335,15 +360,15 @@ def triangulateLS(Rt1, Rt2, x1, x2, K):
 def fromHomogenous(X):
     """ Transform a point from homogenous to normal coordinates. """
 
-    x = X[:-1]
-    x /= X[-1]
+    x = X[:-1, :]
+    x /= X[-1, :]
 
     return x
 
 def toHomogenous(x):
     """ Transform a point from normal to homogenous coordinates. """
 
-    X = np.vstack([x, 1])
+    X = np.vstack([x, np.ones((1, x.shape[1]))])
 
     return X
 
