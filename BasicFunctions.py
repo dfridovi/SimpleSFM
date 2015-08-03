@@ -8,6 +8,8 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from scipy.optimize import leastsq
 
+NUM_EVALS = 0
+
 def f2K(f, shape):
     """ Convert focal length to camera intrinsic matrix. """
 
@@ -159,7 +161,7 @@ def bundleAdjustment(graph, K):
     print "Running bundle adjustment..."
 
     args = (K, views, pts2D, num_frames)
-    result = leastsq(reprojectionError, x0, args=args)
+    result, success = leastsq(reprojectionError, x0, args=args, maxfev=50000)
 
     # get 3D points
     optimized_pts3D = extractStructure(result, num_frames)
@@ -234,6 +236,13 @@ def reprojectionError(x, K, view_matrix, pts2D_matrix, num_frames):
     diff[view_matrix is not True] = 0
 
     error = np.array(diff).ravel()
+ 
+    global NUM_EVALS
+    NUM_EVALS += 1
+
+    if NUM_EVALS % 500 == 0:
+        rms_error = np.sqrt(np.multiply(error, error).sum()/len(error))
+        print "Iteration #%d, RMS error: %f" % (NUM_EVALS, rms_error)
     return error
 
 def toAxisAngle(R):
