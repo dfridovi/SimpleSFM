@@ -492,12 +492,12 @@ def toPLY(graph, plyfile):
     pts3D_matrix = pts3D_matrix.astype(np.float32)
     color_matrix = color_matrix.astype(np.uint8)
 
-    data = np.hstack([pts3D_matrix, color_matrix])
+    data = np.vstack([pts3D_matrix, color_matrix])
 
     # output to file
     f = open(plyfile, "wb")
     f.write("ply\n")
-    f.write("format binary_little_endian 1.0\n")
+    f.write("format ascii 1.0\n")
     f.write("element vertex %d\n" % num_pts)
     f.write("property float x\n")
     f.write("property float y\n")
@@ -506,7 +506,9 @@ def toPLY(graph, plyfile):
     f.write("property uchar green\n")
     f.write("property uchar red\n")
     f.write("end_header\n")
-    f.write(data)
+    for i in range(num_pts):
+        pt = (data[0, i], data[1, i], data[2, i], data[3, i], data[4, i], data[5, i])
+        f.write("%f %f %f %d %d %d\n" % pt)
     f.close()
 
 def rescale(img):

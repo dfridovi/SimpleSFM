@@ -96,7 +96,7 @@ for i in range(1, frames["num_images"]):
     # a 'pair' is basically the same as a 'graph', but it has only two frames
     E = frames["K"].T * F * frames["K"]
     pair = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
-    bf.bundleAdjustment(pair, frames["K"])
+#    bf.bundleAdjustment(pair, frames["K"])
     lastRt = pair["motion"][1]
 
     # add pair
@@ -105,7 +105,7 @@ for i in range(1, frames["num_images"]):
 # do bundle adjustment
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph, frames)
-bf.bundleAdjustment(graph, frames["K"])
+#bf.bundleAdjustment(graph, frames["K"])
 
 # pickle, just in case
 f = open(PKLFILE, "wb")
