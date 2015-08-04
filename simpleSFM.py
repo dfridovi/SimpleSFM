@@ -24,7 +24,7 @@ frames = {}
 frames["images"] = np.array(files)
 frames["focal_length"] = 4100.0 / 1.4
 frames["imsize"] = (2448, 3264)
-frames["K"] = bf.f2K(frames["focal_length"], frames["imsize"])
+frames["K"] = bf.f2K(frames["focal_length"])
 frames["num_images"] = len(files)
 
 # graph dictionary
@@ -86,20 +86,21 @@ for i in range(1, frames["num_images"]):
     if visualize:
         bf.drawMatches(img1, kp1, img2, kp2, inliers)
 
-    # get E from F and convert to poses, and get 3D pts
+    # get E from F and convert to pose, and get 3D pts as pair
+    # a 'pair' is basically the same as a 'graph', but it has only two frames
     E = frames["K"].T * F * frames["K"]
-    Rt, pts3D = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
-    lastRt = Rt
+    pair = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
+    bf.bundleAdjust(pair)
+    lastRt = pair["motion"][-1:]
 
-    # add Rt and 3D pts to graph
-    bf.updateGraph(graph, Rt, pts3D)
-    print Rt
+    # add pair
+    bf.updateGraph(graph, pair)
 
 # do bundle adjustment
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph)
 
-optimized_pts3D = bf.bundleAdjustment(graph, frames["K"])
+bf.bundleAdjustment(graph, frames["K"])
 f = open(PKLFILE, "wb")
-pickle.dump(optimized_pts3D, f)
+pickle.dump(graph, f)
 f.close()

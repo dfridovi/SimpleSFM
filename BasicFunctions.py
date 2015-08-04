@@ -10,11 +10,11 @@ from scipy.optimize import leastsq
 
 NUM_EVALS = 0
 
-def f2K(f, shape):
+def f2K(f):
     """ Convert focal length to camera intrinsic matrix. """
 
-    K = np.matrix([[f, 0, 0.5*shape[1]],
-                   [0, f, 0.5*shape[0]],
+    K = np.matrix([[f, 0, 0],
+                   [0, f, 0],
                    [0, 0, 1]], dtype=np.float)
 
     return K
@@ -97,82 +97,99 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
             bestPts3D = pts3D
 
     print "Found %d of %d possible 3D points in front of both cameras." % (bestCount, len(matches1))
-    return bestRt, bestPts3D
 
-def updateGraph(graph, Rt, pts3D):
+    # Wrap bestRt, bestPts3D into a 'pair'
+    pair = {}
+    pair["motion"] = [baseRt, bestRt]
+    pair["3Dmatches"] = {}
+    for X, matches in bestPts3D.iteritems():
+        m1, m2 = matches
+        key = (m1[1], m1[2]) # use m1 instead of m2 for matching later
+
+        entry = {"frames" : [m1[2], m2[2]], # frames that can see this point
+                 "2Dlocs" : [m1[0], m2[0]], # corresponding 2D points
+                 "3Dlocs" : X,              # 3D triangulation 
+                 "newKey" : (m2[1], m2[2])} # next key (for merging with graph)
+        pair["3Dmatches"][key] = entry
+        
+    return pair
+
+def updateGraph(graph, pair):
     """ Update graph dictionary with new pose and 3D points. """
 
     # append new pose
-    graph["motion"].append(Rt)
+    graph["motion"].append(pair["motion"][-1:])
 
     # insert 3D points, checking for matches with existing points
-    for X, matches in pts3D.iteritems():
-        m1, m2 = matches
-        oldKey = (m1[1], m1[2])
-        newKey = (m2[1], m2[2])
+    for key, pair_entry in pair["3Dmatches"].iteritems():
+        newKey = pair_entry["newKey"]
 
         # if there's a match, update that entry
-        if oldKey in graph["3Dmatches"]:
-            entry = graph["3Dmatches"][oldKey]
-            entry["frames"].append(m2[2])
-            entry["2Dlocs"].append(m2[0])
-            entry["3Dlocs"].append(X)
+        if key in graph["3Dmatches"]:
+            graph_entry = graph["3Dmatches"][key]
+            graph_entry["frames"].append(pair_entry["frames"][-1:])
+            graph_entry["2Dlocs"].append(pair_entry["2Dlocs"][-1:])
+            graph_entry["3Dlocs"].append(pair_entry["3Dlocs"])
 
-            del graph["3Dmatches"][oldKey]
-            graph["3Dmatches"][newKey] = entry
+            del graph["3Dmatches"][key]
+            graph["3Dmatches"][newKey] = graph_entry
 
         # otherwise, create new entry
         else:
-            entry = {"frames" : [m1[2], m2[2]], # frames that can see this point
-                     "2Dlocs" : [m1[0], m2[0]], # corresponding 2D points
-                     "3Dlocs" : [X]} # 3D triangulations from each pair of frames
-            graph["3Dmatches"][newKey] = entry
+            graph_entry = {"frames" : pair_entry["frames"], # frames that can see this point
+                           "2Dlocs" : pair_entry["2Dlocs"], # corresponding 2D points
+                           "3Dlocs" : pair_entry["3Dlocs"]} # 3D triangulations
+            graph["3Dmatches"][newKey] = graph_entry
 
 def finalizeGraph(graph):
-    """ 
-    Replace the 3Dlocs list with the its average for each entry.
-    """
+    """ Replace the 3Dlocs list with the its average for each entry. """
 
-    pts3D = []
     for key, entry in graph["3Dmatches"].iteritems():
         
         # compute average
-        tot = 0
-        
+        total = np.matrix(np.zeros((3, 1)), dtype=np.float)
         for X in entry["3Dlocs"]:
-            tot += X
+            total += X
 
-        avg = tot / len(entry["3Dlocs"])
+        mean = total / len(entry["3Dlocs"])
 
-        # append entry to list
-        pts3D.append((avg, entry["frames"], entry["2Dlocs"]))
-
-    # update
-    graph["3Dmatches"] = pts3D
+        # update graph entry
+        entry["3Dlocs"] = mean
 
 def bundleAdjustment(graph, K):
     """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
 
     # unpack graph parameters into 1D array for initial guess
+    x0, baseRt, keys, views, pts2D, pts3D = unpackGraph(graph)
     num_frames = len(graph["motion"])
-    x0, views, pts2D = unpackGraph(graph)
+    num_pts3D = len(pts3D)
+
+    view_matrix, pts2D_matrix = createViewPointMatrices(views, pts2D, 
+                                                        num_frames, num_pts3D)
 
     # run Levenberg-Marquardt algorithm
     print "Running bundle adjustment..."
 
-    args = (K, views, pts2D, num_frames)
+    args = (K, baseRt, view_matrix, pts2D_matrix, num_frames)
     result, success = leastsq(reprojectionError, x0, args=args, maxfev=50000)
 
-    # get 3D points
-    optimized_pts3D = extractStructure(result, num_frames)
-    return optimized_pts3D
+    # get optimized motion and structure
+    optimized_motion = np.vsplit(extractMotion(result, np.matrix(np.eye(3)),
+                                               baseRt, num_frames), 
+                                 num_frames)
+    optimized_structure = np.hsplit(extractStructure(result, num_frames), num_pts3D)
+
+    # update graph
+    
 
 def unpackGraph(graph):
     """ Extract parameters for optimization. """
 
     print "Unpacking graph for optimization..."
 
-    # extract motion parameters, except initial pose
+    # extract motion parameters
+    baseRt = graph["motion"][0]
+
     poses = graph["motion"][1:]
     motion = []
     for p in poses:
@@ -187,37 +204,43 @@ def unpackGraph(graph):
     motion = np.hstack(motion)
 
     # extract frame parameters as array for all frames at each point
+    keys = []
     views = []
     pts3D = []
     pts2D = []
 
-    for pt in graph["3Dmatches"]:
-        views.append(pt[1])
-        pts3D.append(pt[0])
-        pts2D.append(pt[2])
+    for key, entry in graph["3Dmatches"].iteritems():
+        keys.append(key)
+        views.append(entry["frames"])
+        pts3D.append(entry["3Dlocs"])
+        pts2D.append(entry["2Dlocs"])
 
     structure = np.array(pts3D).ravel()
 
     # concatenate motion/structure arrays
     x0 = np.hstack([motion, structure])
-    
+
+    return x0, baseRt, keys, views, pts2D, pts3D
+
+def createViewPointMatrices(views, pts2D, num_frames, num_pts3D):
+    """ Create view and 2D point matrices. """
+
     # create 2D point matrix and view matrix
-    pts2D_matrix = np.matrix(np.zeros((2 * len(graph["motion"]), len(pts3D))))
-    view_matrix = np.matrix(np.zeros((2 * len(graph["motion"]), len(pts3D)), 
-                                     dtype=np.bool))
+    pts2D_matrix = np.matrix(np.zeros((2 * num_frames, num_pts3D)))
+    view_matrix = np.matrix(np.zeros((2 * num_frames, num_pts3D)), dtype=np.bool)
 
     for i, (frames, pts) in enumerate(zip(views, pts2D)):
         for frame, pt in zip(frames, pts):
             pts2D_matrix[2 * frame:2 * (frame+1), i] = pt
             view_matrix[2 * frame:2 * (frame+1), i] = True
 
-    return x0, view_matrix, pts2D_matrix
+    return view_matrix, pts2D_matrix
 
-def reprojectionError(x, K, view_matrix, pts2D_matrix, num_frames):
+def reprojectionError(x, K, baseRt, view_matrix, pts2D_matrix, num_frames):
     """ Compute reprojection error for the graph with these parameters. """
 
     # unpack parameter vector
-    motion_matrix = extractMotion(x, K, num_frames)
+    motion_matrix = extractMotion(x, K, baseRt, num_frames)
     structure_matrix = extractStructure(x, num_frames)
 
     # project all 3D points into all frames
@@ -300,7 +323,7 @@ def extractStructure(x, num_frames):
  
     return pts3D_matrix
 
-def extractMotion(x, K, num_frames):
+def extractMotion(x, K, baseRt, num_frames):
     """ 
     Extract camera poses (as a single large matrix) from parameter vector, 
     including implicit base pose. 
@@ -312,7 +335,7 @@ def extractMotion(x, K, num_frames):
 
     # repack motion into 3x4 pose matrices
     pose_arrays = np.split(motion, num_frames - 1)
-    pose_matrices = [basePose()]
+    pose_matrices = [baseRt]
     for p in pose_arrays:
 
         # convert from axis-angle to full pose matrix
