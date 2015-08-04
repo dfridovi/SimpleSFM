@@ -24,8 +24,7 @@ files = [f for f in os.listdir(IMPATH) if not f.startswith(".")]
 frames = {}
 frames["files"] = np.array(files)
 frames["images"] = []
-frames["focal_length"] = 4100.0 / 1.4
-frames["imsize"] = (int(2448*RATIO), int(3264*RATIO))
+frames["focal_length"] = RATIO * 4100.0 / 1.4
 frames["K"] = bf.f2K(frames["focal_length"])
 frames["num_images"] = len(files)
 
