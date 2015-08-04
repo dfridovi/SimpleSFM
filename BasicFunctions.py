@@ -84,6 +84,7 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
             # use least squares triangulation
             X = triangulateLS(baseRt, Rt, m1[0], m2[0], K)
             x = fromHomogenous(X)
+
             pts3D[x] = (m1, m2)
 
             # test if in front of both cameras
@@ -482,17 +483,15 @@ def toPLY(graph, plyfile):
     num_pts = len(graph["3Dmatches"].keys())
 
     # create pts3D and color arrays
-    pts3D_matrix = np.zeros((3, num_pts), dtype=np.float32)
-    color_matrix = np.zeros((3, num_pts), dtype=np.uint8)
+    pts3D_matrix = np.matrix(np.zeros((3, num_pts), dtype=np.float32))
+    color_matrix = np.matrix(np.zeros((3, num_pts), dtype=np.uint8))
 
     for i, (key, entry) in enumerate(graph["3Dmatches"].iteritems()):
-        pts3D_matrix[:, i] = np.array(entry["3Dlocs"])[0]
-        color_matrix[:, i] = entry["color"]
+        pts3D_matrix[:, i] = entry["3Dlocs"]
+        color_matrix[:, i] = entry["color"].T
 
     pts3D_matrix = pts3D_matrix.astype(np.float32)
     color_matrix = color_matrix.astype(np.uint8)
-
-    data = np.vstack([pts3D_matrix, color_matrix])
 
     # output to file
     f = open(plyfile, "wb")
@@ -507,7 +506,8 @@ def toPLY(graph, plyfile):
     f.write("property uchar red\n")
     f.write("end_header\n")
     for i in range(num_pts):
-        pt = (data[0, i], data[1, i], data[2, i], data[3, i], data[4, i], data[5, i])
+        pt = (pts3D_matrix[0, i], pts3D_matrix[1, i], pts3D_matrix[2, i], 
+              color_matrix[0, i], color_matrix[1, i], color_matrix[2, i])
         f.write("%f %f %f %d %d %d\n" % pt)
     f.close()
 
