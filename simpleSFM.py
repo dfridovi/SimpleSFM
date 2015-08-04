@@ -15,15 +15,17 @@ visualize = False
 RATIO = 0.2
 MIN_MATCHES = 20
 PKLFILE = "pts3D.pkl"
+PLYFILE = "model.ply"
 
 # set up
 IMPATH = "Images/"
 files = [f for f in os.listdir(IMPATH) if not f.startswith(".")]
 
 frames = {}
-frames["images"] = np.array(files)
+frames["files"] = np.array(files)
+frames["images"] = []
 frames["focal_length"] = 4100.0 / 1.4
-frames["imsize"] = (2448, 3264)
+frames["imsize"] = (int(2448*RATIO), int(3264*RATIO))
 frames["K"] = bf.f2K(frames["focal_length"])
 frames["num_images"] = len(files)
 
@@ -35,6 +37,7 @@ frames["num_images"] = len(files)
 graph = {}
 graph["motion"] = [bf.basePose()]
 graph["3Dmatches"] = {}
+graph["frameOffset"] = 0
 
 # make an ORB detector
 orb = cv2.ORB()
@@ -49,11 +52,15 @@ lastRt = graph["motion"][0]
 for i in range(1, frames["num_images"]):
 
     # read in images
-    img1 = cv2.imread(IMPATH + frames["images"][i - 1])
-    img2 = cv2.imread(IMPATH + frames["images"][i])
+    img1 = cv2.imread(IMPATH + frames["files"][i - 1])
+    img2 = cv2.imread(IMPATH + frames["files"][i])
 
     img1 = np.flipud(np.fliplr(cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)))
     img2 = np.flipud(np.fliplr(cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)))
+
+    frames["images"].append(img1)
+    if i == frames["num_images"] - 1:
+        frames["images"].append(img2)
 
     gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
     gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
@@ -90,17 +97,23 @@ for i in range(1, frames["num_images"]):
     # a 'pair' is basically the same as a 'graph', but it has only two frames
     E = frames["K"].T * F * frames["K"]
     pair = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
-    bf.bundleAdjust(pair)
-    lastRt = pair["motion"][-1:]
+    bf.bundleAdjustment(pair, frames["K"])
+    lastRt = pair["motion"][1]
 
     # add pair
     bf.updateGraph(graph, pair)
 
 # do bundle adjustment
 bf.printGraphStats(graph)
-bf.finalizeGraph(graph)
-
+bf.finalizeGraph(graph, frames)
 bf.bundleAdjustment(graph, frames["K"])
+
+# pickle, just in case
 f = open(PKLFILE, "wb")
 pickle.dump(graph, f)
 f.close()
+
+# dense stereo matching
+
+# output point cloud
+bf.toPLY(graph, PLYFILE)

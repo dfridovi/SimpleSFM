@@ -52,10 +52,10 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
     matches1 = []
     matches2 = []
     for m in matches:
-        pt1 = np.matrix([kp1[m.queryIdx].pt[1], kp1[m.queryIdx].pt[0]]).T
+        pt1 = np.matrix([kp1[m.queryIdx].pt[0], kp1[m.queryIdx].pt[1]]).T
         matches1.append((pt1, m.queryIdx, frameIdx))
 
-        pt2 = np.matrix([kp2[m.trainIdx].pt[1], kp2[m.trainIdx].pt[0]]).T
+        pt2 = np.matrix([kp2[m.trainIdx].pt[0], kp2[m.trainIdx].pt[1]]).T
         matches2.append((pt2, m.trainIdx, frameIdx + 1))
 
     # create four possible new camera matrices
@@ -96,12 +96,13 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
             bestRt = Rt
             bestPts3D = pts3D
 
-    print "Found %d of %d possible 3D points in front of both cameras." % (bestCount, len(matches1))
+    print "\nFound %d of %d possible 3D points in front of both cameras." % (bestCount, len(matches1))
 
     # Wrap bestRt, bestPts3D into a 'pair'
     pair = {}
     pair["motion"] = [baseRt, bestRt]
     pair["3Dmatches"] = {}
+    pair["frameOffset"] = frameIdx
     for X, matches in bestPts3D.iteritems():
         m1, m2 = matches
         key = (m1[1], m1[2]) # use m1 instead of m2 for matching later
@@ -118,7 +119,7 @@ def updateGraph(graph, pair):
     """ Update graph dictionary with new pose and 3D points. """
 
     # append new pose
-    graph["motion"].append(pair["motion"][-1:])
+    graph["motion"].append(pair["motion"][1])
 
     # insert 3D points, checking for matches with existing points
     for key, pair_entry in pair["3Dmatches"].iteritems():
@@ -127,8 +128,8 @@ def updateGraph(graph, pair):
         # if there's a match, update that entry
         if key in graph["3Dmatches"]:
             graph_entry = graph["3Dmatches"][key]
-            graph_entry["frames"].append(pair_entry["frames"][-1:])
-            graph_entry["2Dlocs"].append(pair_entry["2Dlocs"][-1:])
+            graph_entry["frames"].append(pair_entry["frames"][1])
+            graph_entry["2Dlocs"].append(pair_entry["2Dlocs"][1])
             graph_entry["3Dlocs"].append(pair_entry["3Dlocs"])
 
             del graph["3Dmatches"][key]
@@ -138,11 +139,12 @@ def updateGraph(graph, pair):
         else:
             graph_entry = {"frames" : pair_entry["frames"], # frames that can see this point
                            "2Dlocs" : pair_entry["2Dlocs"], # corresponding 2D points
-                           "3Dlocs" : pair_entry["3Dlocs"]} # 3D triangulations
+                           "3Dlocs" : [pair_entry["3Dlocs"]], # 3D triangulations
+                           "color"  : None}                  # point color
             graph["3Dmatches"][newKey] = graph_entry
 
-def finalizeGraph(graph):
-    """ Replace the 3Dlocs list with the its average for each entry. """
+def finalizeGraph(graph, frames):
+    """ Replace the 3Dlocs list with the its average for each entry. Add color. """
 
     for key, entry in graph["3Dmatches"].iteritems():
         
@@ -156,6 +158,14 @@ def finalizeGraph(graph):
         # update graph entry
         entry["3Dlocs"] = mean
 
+        # determine color
+        color = np.zeros((1, 3), dtype=np.float)
+        for frame, pt2D in zip(entry["frames"], entry["2Dlocs"]):
+            color += frames["images"][frame][int(pt2D[1]), int(pt2D[0])].astype(np.float)
+
+        color /= len(frames["images"])
+        entry["color"] = color.astype(np.uint8)
+
 def bundleAdjustment(graph, K):
     """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
 
@@ -163,24 +173,29 @@ def bundleAdjustment(graph, K):
     x0, baseRt, keys, views, pts2D, pts3D = unpackGraph(graph)
     num_frames = len(graph["motion"])
     num_pts3D = len(pts3D)
+    frameOffset = graph["frameOffset"]
 
-    view_matrix, pts2D_matrix = createViewPointMatrices(views, pts2D, 
-                                                        num_frames, num_pts3D)
+    view_matrix, pts2D_matrix = createViewPointMatrices(views, pts2D, num_frames, 
+                                                        num_pts3D, frameOffset)
 
     # run Levenberg-Marquardt algorithm
     print "Running bundle adjustment..."
 
+    global NUM_EVALS
+    NUM_EVALS = 0
     args = (K, baseRt, view_matrix, pts2D_matrix, num_frames)
-    result, success = leastsq(reprojectionError, x0, args=args, maxfev=50000)
+    result, success = leastsq(reprojectionError, x0, args=args, maxfev=100000)
 
-    # get optimized motion and structure
+    # get optimized motion and structure as lists
     optimized_motion = np.vsplit(extractMotion(result, np.matrix(np.eye(3)),
                                                baseRt, num_frames), 
                                  num_frames)
     optimized_structure = np.hsplit(extractStructure(result, num_frames), num_pts3D)
 
-    # update graph
-    
+    # update/repack graph
+    graph["motion"] = optimized_motion
+    for key, pt3D in zip(keys, optimized_structure):
+        graph["3Dmatches"][key]["3Dlocs"] = pt3D
 
 def unpackGraph(graph):
     """ Extract parameters for optimization. """
@@ -222,7 +237,7 @@ def unpackGraph(graph):
 
     return x0, baseRt, keys, views, pts2D, pts3D
 
-def createViewPointMatrices(views, pts2D, num_frames, num_pts3D):
+def createViewPointMatrices(views, pts2D, num_frames, num_pts3D, frameOffset):
     """ Create view and 2D point matrices. """
 
     # create 2D point matrix and view matrix
@@ -231,6 +246,7 @@ def createViewPointMatrices(views, pts2D, num_frames, num_pts3D):
 
     for i, (frames, pts) in enumerate(zip(views, pts2D)):
         for frame, pt in zip(frames, pts):
+            frame -= frameOffset
             pts2D_matrix[2 * frame:2 * (frame+1), i] = pt
             view_matrix[2 * frame:2 * (frame+1), i] = True
 
@@ -263,7 +279,7 @@ def reprojectionError(x, K, baseRt, view_matrix, pts2D_matrix, num_frames):
     global NUM_EVALS
     NUM_EVALS += 1
 
-    if NUM_EVALS % 500 == 0:
+    if NUM_EVALS % 1000 == 0:
         rms_error = np.sqrt(np.multiply(error, error).sum()/len(error))
         print "Iteration #%d, RMS error: %f" % (NUM_EVALS, rms_error)
     return error
@@ -459,6 +475,39 @@ def imsave(img, imfile):
     """ Save image to file."""
 
     mpimg.imsave(imfile, img)
+
+def toPLY(graph, plyfile):
+    """ Output graph structure to *.ply format. """
+
+    num_pts = len(graph["3Dmatches"].keys())
+
+    # create pts3D and color arrays
+    pts3D_matrix = np.zeros((3, num_pts), dtype=np.float32)
+    color_matrix = np.zeros((3, num_pts), dtype=np.uint8)
+
+    for i, (key, entry) in enumerate(graph["3Dmatches"].iteritems()):
+        pts3D_matrix[:, i] = np.array(entry["3Dlocs"])[0]
+        color_matrix[:, i] = entry["color"]
+
+    pts3D_matrix = pts3D_matrix.astype(np.float32)
+    color_matrix = color_matrix.astype(np.uint8)
+
+    data = np.hstack([pts3D_matrix, color_matrix])
+
+    # output to file
+    f = open(plyfile, "wb")
+    f.write("ply\n")
+    f.write("format binary_little_endian 1.0\n")
+    f.write("element vertex %d\n" % num_pts)
+    f.write("property float x\n")
+    f.write("property float y\n")
+    f.write("property float z\n")
+    f.write("property uchar blue\n")
+    f.write("property uchar green\n")
+    f.write("property uchar red\n")
+    f.write("end_header\n")
+    f.write(data)
+    f.close()
 
 def rescale(img):
     """ Rescale image values linearly to the range [0.0, 1.0]. """
