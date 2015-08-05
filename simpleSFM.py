@@ -11,14 +11,14 @@ import matplotlib.pyplot as plt
 import cPickle as pickle
 
 # parameters
-visualize = True
+visualize = False
 RATIO = 1.0
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
-PLYFILE = "testseries.ply"
+PLYFILE = "TestSeriesMe.ply"
 
 # set up
-IMPATH = "Images/TestSeries/"
+IMPATH = "Images/TestSeriesMe/"
 files = [f for f in os.listdir(IMPATH) if not f.startswith(".")]
 
 frames = {}
@@ -54,8 +54,8 @@ for i in range(1, frames["num_images"]):
     img1 = cv2.imread(IMPATH + frames["files"][i - 1])
     img2 = cv2.imread(IMPATH + frames["files"][i])
 
-    #img1 = np.flipud(np.fliplr(cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)))
-    #img2 = np.flipud(np.fliplr(cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)))
+    img1 = np.flipud(np.fliplr(cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)))
+    img2 = np.flipud(np.fliplr(cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)))
 
     frames["images"].append(img1)
     if i == frames["num_images"] - 1:
