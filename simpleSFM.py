@@ -11,20 +11,20 @@ import matplotlib.pyplot as plt
 import cPickle as pickle
 
 # parameters
-visualize = False
-RATIO = 0.2
-MIN_MATCHES = 20
+visualize = True
+RATIO = 1.0
+MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
-PLYFILE = "model.ply"
+PLYFILE = "testseries.ply"
 
 # set up
-IMPATH = "Images/"
+IMPATH = "Images/TestSeries/"
 files = [f for f in os.listdir(IMPATH) if not f.startswith(".")]
 
 frames = {}
 frames["files"] = np.array(files)
 frames["images"] = []
-frames["focal_length"] = RATIO * 4100.0 / 1.4
+frames["focal_length"] = RATIO * 719.5459 #* 4100.0 / 1.4
 frames["K"] = bf.f2K(frames["focal_length"])
 frames["num_images"] = len(files)
 
@@ -54,8 +54,8 @@ for i in range(1, frames["num_images"]):
     img1 = cv2.imread(IMPATH + frames["files"][i - 1])
     img2 = cv2.imread(IMPATH + frames["files"][i])
 
-    img1 = np.flipud(np.fliplr(cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)))
-    img2 = np.flipud(np.fliplr(cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)))
+    #img1 = np.flipud(np.fliplr(cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)))
+    #img2 = np.flipud(np.fliplr(cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)))
 
     frames["images"].append(img1)
     if i == frames["num_images"] - 1:
@@ -79,7 +79,7 @@ for i in range(1, frames["num_images"]):
 
     # estimate F if sufficient good matches
     if len(good_matches) < MIN_MATCHES:
-        print "Did not find enough good matches (%d/%d)" % (len(good),MIN_MATCHES)
+        print "Did not find enough good matches (%d/%d)" % (len(good_matches),MIN_MATCHES)
         sys.exit(0)
 
     pts1 = np.array([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1,1,2)
