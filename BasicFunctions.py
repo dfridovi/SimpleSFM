@@ -82,9 +82,7 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
         for m1, m2 in zip(matches1, matches2):
 
             # use least squares triangulation
-            X = triangulateLS(baseRt, Rt, m1[0], m2[0], K)
-            x = fromHomogenous(X)
-
+            x = triangulateCross(baseRt, Rt, m1[0], m2[0], K)
             pts3D[x] = (m1, m2)
 
             # test if in front of both cameras
@@ -92,6 +90,7 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
                 cnt += 1
 
         # update best camera/cnt
+        print "[DEBUG] Found %d points in front of both cameras.\n" % cnt
         if cnt > bestCount:
             bestCount = cnt
             bestRt = Rt
@@ -162,7 +161,8 @@ def finalizeGraph(graph, frames):
         # determine color
         color = np.zeros((1, 3), dtype=np.float)
         for frame, pt2D in zip(entry["frames"], entry["2Dlocs"]):
-            color += frames["images"][frame][int(pt2D[1]), int(pt2D[0])].astype(np.float)
+            color += frames["images"][frame][int(pt2D[1, 0]), 
+                                             int(pt2D[0, 0])].astype(np.float)
 
         color /= len(frames["images"])
         entry["color"] = color.astype(np.uint8)
@@ -185,7 +185,7 @@ def bundleAdjustment(graph, K):
     global NUM_EVALS
     NUM_EVALS = 0
     args = (K, baseRt, view_matrix, pts2D_matrix, num_frames)
-    result, success = leastsq(reprojectionError, x0, args=args, maxfev=100000)
+    result, success = leastsq(reprojectionError, x0, args=args, maxfev=250000)
 
     # get optimized motion and structure as lists
     optimized_motion = np.vsplit(extractMotion(result, np.matrix(np.eye(3)),
@@ -281,7 +281,8 @@ def reprojectionError(x, K, baseRt, view_matrix, pts2D_matrix, num_frames):
     NUM_EVALS += 1
 
     if NUM_EVALS % 1000 == 0:
-        rms_error = np.sqrt(np.multiply(error, error).sum()/len(error))
+        num_views = view_matrix.sum()
+        rms_error = np.sqrt(np.multiply(error, error).sum()/(0.5*num_views))
         print "Iteration #%d, RMS error: %f" % (NUM_EVALS, rms_error)
     return error
 
@@ -393,13 +394,66 @@ def triangulateLS(Rt1, Rt2, x1, x2, K):
     """ 
     Triangulate a least squares 3D point given two camera matrices
     and the point correspondence in non-homogenous coordinates.
+
+    NOTE: This does not work very well due to ambiguity in homogenous coordinates.
     """
     
     A = np.vstack([K * Rt1, K * Rt2])
     b = np.vstack([toHomogenous(x1), toHomogenous(x2)])
     X = np.linalg.lstsq(A, b)[0]
 
+    # testing
+    px1 = fromHomogenous(K * Rt1 * toHomogenous(fromHomogenous(X)))
+    px2 = fromHomogenous(K * Rt2 * toHomogenous(fromHomogenous(X)))
+
+    diff1 = px1 - x1
+    diff2 = px2 - x2
+    print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
+                                         np.sqrt(np.multiply(diff2, diff2).sum())) 
+
     return X
+
+def triangulateCross(Rt1, Rt2, x1, x2, K):
+    """
+    Triangulate a 3D point given its location in two frames of reference
+    by using a cross product relation. Use least squares to solve.
+    """
+
+    # set up cross product matrix
+    p1x = vector2cross(toHomogenous(x1))
+    p2x = vector2cross(toHomogenous(x2))
+    M = np.vstack([p1x * K * Rt1, p2x * K * Rt2])
+
+    # do an SVD
+    #U, D, V = np.linalg.svd(M)
+
+    # extract 0-eigenvector
+    #absD = np.abs(D)
+    #X = V.T[:, np.argmin(absD)]
+
+    # solve with least squares
+    A = M[:, :-1]
+    b = -M[:, -1:]
+    X = np.linalg.lstsq(A, b)[0]
+
+    # testing
+    px1 = fromHomogenous(K * Rt1 * toHomogenous(X))
+    px2 = fromHomogenous(K * Rt2 * toHomogenous(X))
+
+    diff1 = px1 - x1
+    diff2 = px2 - x2
+    print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
+                                         np.sqrt(np.multiply(diff2, diff2).sum())) 
+
+    return X
+
+def vector2cross(v):
+    """ Return the cross-product matrix version of a column vector. """
+
+    cross = np.matrix([[0, -v[2, 0], v[1, 0]],
+                       [v[2, 0], 0, -v[0, 0]],
+                       [-v[1, 0], v[0, 0], 0]], dtype=np.float)
+    return cross
 
 def fromHomogenous(X):
     """ Transform a point from homogenous to normal coordinates. """

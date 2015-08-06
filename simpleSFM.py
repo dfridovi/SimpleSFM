@@ -15,10 +15,10 @@ visualize = False
 RATIO = 1.0
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
-PLYFILE = "TestSeriesMe.ply"
+PLYFILE = "model.ply"
 
 # set up
-IMPATH = "Images/TestSeriesMe/"
+IMPATH = "Images/TestSeriesWatch/"
 files = [f for f in os.listdir(IMPATH) if not f.startswith(".")]
 
 frames = {}
@@ -49,6 +49,8 @@ lastRt = graph["motion"][0]
 
 # for adjacent frames, detect ORB keypoints and extimate F
 for i in range(1, frames["num_images"]):
+
+    print "Now analyzing frames %d and %d of %d." % (i-1, i, frames["num_images"])
 
     # read in images
     img1 = cv2.imread(IMPATH + frames["files"][i - 1])
@@ -115,4 +117,4 @@ f.close()
 # dense stereo matching
 
 # output point cloud
-bf.toPLY(graph, PLYFILE)
+bf.toPLY(graph, IMPATH + PLYFILE)
