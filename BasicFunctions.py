@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import leastsq
 
 NUM_EVALS = 0
@@ -83,11 +84,12 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
 
             # use least squares triangulation
             x = triangulateCross(baseRt, Rt, m1[0], m2[0], K)
-            pts3D[x] = (m1, m2)
 
             # test if in front of both cameras
             if inFront(baseRt, x) and inFront(Rt, x):
                 cnt += 1
+                pts3D[x] = (m1, m2)
+
 
         # update best camera/cnt
         print "[DEBUG] Found %d points in front of both cameras." % cnt
@@ -283,7 +285,7 @@ def reprojectionError(x, K, baseRt, view_matrix, pts2D_matrix, num_frames):
     if NUM_EVALS % 1000 == 0:
         num_views = view_matrix.sum()
         rms_error = np.sqrt(np.multiply(error, error).sum()/(0.5*num_views))
-        print "Iteration #%d, RMS error: %f" % (NUM_EVALS, rms_error)
+        print "Iteration %d, RMS error: %f" % (NUM_EVALS, rms_error)
     return error
 
 def toAxisAngle(R):
@@ -380,11 +382,11 @@ def printGraphStats(graph):
     print "Number of 3D points with >1 correspondence(s): " + str(cnt)
     print ""
 
-def inFront(P, X):
+def inFront(Rt, X):
     """ Return true if X is in front of the camera. """
 
-    R = P[:, :-1]
-    t = P[:, -1]
+    R = Rt[:, :-1]
+    t = Rt[:, -1:]
 
     if R[2, :] * (X + R.T * t) > 0:
         return True
@@ -424,13 +426,6 @@ def triangulateCross(Rt1, Rt2, x1, x2, K):
     p2x = vector2cross(toHomogenous(x2))
     M = np.vstack([p1x * K * Rt1, p2x * K * Rt2])
 
-    # do an SVD
-    #U, D, V = np.linalg.svd(M)
-
-    # extract 0-eigenvector
-    #absD = np.abs(D)
-    #X = V.T[:, np.argmin(absD)]
-
     # solve with least squares
     A = M[:, :-1]
     b = -M[:, -1:]
@@ -442,8 +437,8 @@ def triangulateCross(Rt1, Rt2, x1, x2, K):
 
     diff1 = px1 - x1
     diff2 = px2 - x2
-    #print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
-    #                                     np.sqrt(np.multiply(diff2, diff2).sum())) 
+    print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
+                                         np.sqrt(np.multiply(diff2, diff2).sum())) 
 
     return X
 
@@ -530,6 +525,48 @@ def imsave(img, imfile):
     """ Save image to file."""
 
     mpimg.imsave(imfile, img)
+
+def plotTrajectory(graph):
+    """ Show estimated camera trajectory. """
+
+    tx = []
+    ty = []
+    tz = []
+    for Rt in graph["motion"]:
+        t = Rt[:, -1:]
+        tx.append(t[0, 0])
+        ty.append(t[1, 0])
+        tz.append(t[2, 0])
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.scatter(tx, ty, tz, marker="o")
+    plt.show()
+
+def showPointCloud(graph):
+    """ Show point cloud. """
+
+    num_pts = len(graph["3Dmatches"].keys())
+
+    px = np.zeros(num_pts, dtype=np.float)
+    py = np.zeros(num_pts, dtype=np.float)
+    pz = np.zeros(num_pts, dtype=np.float)
+    colors = np.zeros((num_pts, 3), dtype=np.uint8)
+
+    for i, (key, entry) in enumerate(graph["3Dmatches"].iteritems()):
+        pt = entry["3Dlocs"]
+        px[i] = pt[0, 0]
+        py[i] = pt[1, 0]
+        pz[i] = pt[2, 0]
+        colors[i, :] = entry["color"].astype(np.float)/255.0
+        colors[i, :] = colors[i, [2, 1, 0]]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.scatter(px, py, pz, c=colors, marker="o")
+    plt.show()
 
 def toPLY(graph, plyfile):
     """ Output graph structure to *.ply format. """

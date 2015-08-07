@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.image 
 import cv2
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import cPickle as pickle
 
 # parameters
@@ -24,7 +25,7 @@ files = [f for f in os.listdir(IMPATH) if (not f.startswith(".") and not f == "m
 frames = {}
 frames["files"] = np.array(files)
 frames["images"] = []
-frames["focal_length"] = RATIO * 719.5459 #* 4100.0 / 1.4
+frames["focal_length"] = RATIO * 4100.0 / 1.4
 frames["K"] = bf.f2K(frames["focal_length"])
 frames["num_images"] = len(files)
 
@@ -98,7 +99,7 @@ for i in range(1, frames["num_images"]):
     # a 'pair' is basically the same as a 'graph', but it has only two frames
     E = frames["K"].T * F * frames["K"]
     pair = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
-    bf.bundleAdjustment(pair, frames["K"])
+#    bf.bundleAdjustment(pair, frames["K"])
     lastRt = pair["motion"][1]
 
     # add pair
@@ -107,7 +108,7 @@ for i in range(1, frames["num_images"]):
 # do bundle adjustment
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph, frames)
-bf.bundleAdjustment(graph, frames["K"])
+#bf.bundleAdjustment(graph, frames["K"])
 
 # pickle, just in case
 f = open(PKLFILE, "wb")
@@ -118,3 +119,9 @@ f.close()
 
 # output point cloud
 bf.toPLY(graph, IMPATH + PLYFILE)
+
+# plot camera translation over time
+bf.plotTrajectory(graph)
+
+# show point cloud
+bf.showPointCloud(graph)
