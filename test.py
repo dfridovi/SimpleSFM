@@ -19,7 +19,7 @@ x2 = np.matrix([[0],[f]])
 print "x1 = " + str(x1.T)
 print "x2 = " + str(x2.T)
 
-p = bf.triangulateCross(Rt1, Rt2, x1, x2, K)
+p = bf.triangulateLM(Rt1, Rt2, x1, x2, K)
 
 print "p = " + str(p.T)
 

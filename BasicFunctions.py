@@ -83,15 +83,13 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
         for m1, m2 in zip(matches1, matches2):
 
             # use least squares triangulation
-            x = triangulateCross(baseRt, Rt, m1[0], m2[0], K)
+            x = triangulateLM(baseRt, Rt, m1[0], m2[0], K)
             pts3D[x] = (m1, m2)
 
             # test if in front of both cameras
             if inFront(baseRt, x) and inFront(Rt, x):
                 cnt += 1
                 
-
-
         # update best camera/cnt
         #print "[DEBUG] Found %d points in front of both cameras." % cnt
         if cnt > bestCount:
@@ -135,6 +133,8 @@ def updateGraph(graph, pair):
             graph_entry["2Dlocs"].append(pair_entry["2Dlocs"][1])
             graph_entry["3Dlocs"].append(pair_entry["3Dlocs"])
 
+            print "hi"
+
             del graph["3Dmatches"][key]
             graph["3Dmatches"][newKey] = graph_entry
 
@@ -170,7 +170,7 @@ def finalizeGraph(graph, frames):
         color /= len(frames["images"])
         entry["color"] = color.astype(np.uint8)
 
-def bundleAdjustment(graph, K):
+def bundleAdjustment(graph, K, niter=0):
     """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
 
     # unpack graph parameters into 1D array for initial guess
@@ -188,7 +188,7 @@ def bundleAdjustment(graph, K):
     global NUM_EVALS
     NUM_EVALS = 0
     args = (K, baseRt, view_matrix, pts2D_matrix, num_frames)
-    result, success = leastsq(reprojectionError, x0, args=args, maxfev=250000)
+    result, success = leastsq(reprojectionError, x0, args=args, maxfev=niter)
 
     # get optimized motion and structure as lists
     optimized_motion = np.vsplit(extractMotion(result, np.matrix(np.eye(3)),
@@ -200,6 +200,45 @@ def bundleAdjustment(graph, K):
     graph["motion"] = optimized_motion
     for key, pt3D in zip(keys, optimized_structure):
         graph["3Dmatches"][key]["3Dlocs"] = pt3D
+
+def outlierRejection(graph, K, thresh=100.0):
+    """ 
+    Examine graph and remove all points with max triangulation error 
+    over a given threshold.
+    """
+
+    # iterate through all points
+    cnt = 0 
+    marked_keys = []
+    for key, entry in graph["3Dmatches"].iteritems():
+
+        X = entry["3Dlocs"]
+
+        # project into each frame
+        errors = []
+        for frame, x in zip(entry["frames"], entry["2Dlocs"]):
+            frame -= graph["frameOffset"]
+            Rt = graph["motion"][frame]
+
+            proj = fromHomogenous(K * Rt * toHomogenous(X))
+            diff = proj - x
+
+            err = np.sqrt(np.multiply(diff, diff).sum())
+            print (frame, err)
+
+            errors.append(err)
+
+        # get max error and remove if above threshold
+        max_error = np.array(errors).max()
+        if max_error > thresh:
+            marked_keys.append(key)
+            cnt += 1
+
+    # remove marked keys
+    for key in marked_keys:
+        del graph["3Dmatches"][key]
+
+    print "Removed %d outliers." % cnt
 
 def unpackGraph(graph):
     """ Extract parameters for optimization. """
@@ -356,7 +395,7 @@ def extractMotion(x, K, baseRt, num_frames):
 
     # repack motion into 3x4 pose matrices
     pose_arrays = np.split(motion, num_frames - 1)
-    pose_matrices = [baseRt]
+    pose_matrices = [K * baseRt]
     for p in pose_arrays:
 
         # convert from axis-angle to full pose matrix
@@ -392,6 +431,48 @@ def inFront(Rt, X):
     if R[2, :] * (X + R.T * t) > 0:
         return True
     return False 
+
+def triangulateLM(Rt1, Rt2, x1, x2, K):
+    """ 
+    Use nonlinear optimization to triangulate a 3D point, initialized with
+    the estimate from triangulateCross().
+    """
+
+    # initialize with triangulateCross() linear solution
+    x0 = np.asarray(triangulateCross(Rt1, Rt2, x1, x2, K).T)[0, :]
+
+    # run Levenberg-Marquardt algorithm
+    args = (Rt1, Rt2, x1, x2, K)
+    result, success = leastsq(triangulationError, x0, args=args, maxfev=10000)
+
+    # convert back to column vector and return
+    X =  np.matrix(result).T
+
+    # test reprojection
+    #px1 = fromHomogenous(K * Rt1 * toHomogenous(X))
+    #px2 = fromHomogenous(K * Rt2 * toHomogenous(X))
+
+    #diff1 = px1 - x1
+    #diff2 = px2 - x2
+    #print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
+    #                                     np.sqrt(np.multiply(diff2, diff2).sum())) 
+
+    return X
+
+def triangulationError(x, Rt1, Rt2, x1, x2, K):
+    """ Calculate triangulation error for single point x as a row-vector. """
+
+    X = np.matrix(x).T
+
+    # project into each frame
+    px1 = fromHomogenous(K * Rt1 * toHomogenous(X))
+    px2 = fromHomogenous(K * Rt2 * toHomogenous(X))
+
+    # compute the diffs
+    diff1 = px1 - x1
+    diff2 = px2 - x2
+
+    return np.asarray(np.vstack([diff1, diff2]).T)[0, :]
 
 def triangulateLS(Rt1, Rt2, x1, x2, K):
     """ 
@@ -433,11 +514,11 @@ def triangulateCross(Rt1, Rt2, x1, x2, K):
     X = np.linalg.lstsq(A, b)[0]
 
     # testing
-    px1 = fromHomogenous(K * Rt1 * toHomogenous(X))
-    px2 = fromHomogenous(K * Rt2 * toHomogenous(X))
+    #px1 = fromHomogenous(K * Rt1 * toHomogenous(X))
+    #px2 = fromHomogenous(K * Rt2 * toHomogenous(X))
 
-    diff1 = px1 - x1
-    diff2 = px2 - x2
+    #diff1 = px1 - x1
+    #diff2 = px2 - x2
     #print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
     #                                     np.sqrt(np.multiply(diff2, diff2).sum())) 
 

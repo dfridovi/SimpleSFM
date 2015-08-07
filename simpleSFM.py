@@ -17,6 +17,9 @@ RATIO = 1.0
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
 PLYFILE = "model.ply"
+LO_ITER = 75000
+HI_ITER = 250000
+OUTLIER_THRESH = 500.0
 
 # set up
 IMPATH = "Images/TestSeriesWatch/"
@@ -51,7 +54,7 @@ lastRt = graph["motion"][0]
 # for adjacent frames, detect ORB keypoints and extimate F
 for i in range(1, frames["num_images"]):
 
-    print "Now analyzing frames %d and %d of %d." % (i-1, i, frames["num_images"])
+    print "\nNow analyzing frames %d and %d of %d." % (i-1, i, frames["num_images"])
 
     # read in images
     img1 = cv2.imread(IMPATH + frames["files"][i - 1])
@@ -99,9 +102,15 @@ for i in range(1, frames["num_images"]):
     # a 'pair' is basically the same as a 'graph', but it has only two frames
     E = frames["K"].T * F * frames["K"]
     pair = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
-    bf.showPointCloud(pair)
-    bf.bundleAdjustment(pair, frames["K"])
-    bf.showPointCloud(pair)
+#    bf.showPointCloud(pair)
+
+    print "Course bundle adjustment..."
+    bf.bundleAdjustment(pair, frames["K"], LO_ITER)
+    bf.outlierRejection(pair, frames["K"], OUTLIER_THRESH)
+
+    print "Fine bundle adjustment..."
+#    bf.bundleAdjustment(pair, frames["K"], HI_ITER)
+#    bf.showPointCloud(pair)
     lastRt = pair["motion"][1]
 
     # add pair
@@ -110,7 +119,13 @@ for i in range(1, frames["num_images"]):
 # do bundle adjustment
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph, frames)
-#bf.bundleAdjustment(graph, frames["K"])
+
+print "Course bundle adjustment..."
+bf.bundleAdjustment(graph, frames["K"], LO_ITER)
+#bf.outlierRejection(graph, frames["K"], OUTLIER_THRESH)
+
+print "Fine bundle adjustment..."
+#bf.bundleAdjustment(graph, frames["K"], HI_ITER)
 
 # pickle, just in case
 f = open(PKLFILE, "wb")
