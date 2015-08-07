@@ -19,7 +19,7 @@ PLYFILE = "model.ply"
 
 # set up
 IMPATH = "Images/TestSeriesWatch/"
-files = [f for f in os.listdir(IMPATH) if not f.startswith(".")]
+files = [f for f in os.listdir(IMPATH) if (not f.startswith(".") and not f == "model.ply")]
 
 frames = {}
 frames["files"] = np.array(files)

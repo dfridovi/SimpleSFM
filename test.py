@@ -5,7 +5,7 @@ Test script.
 import numpy as np
 import BasicFunctions as bf
 
-f = 1.0
+f = 5.0
 K = bf.f2K(f)
 Rt1 = bf.basePose()
 Rt2a = np.hstack([np.matrix(np.eye(3)), np.matrix([[-f], [0], [0]])])

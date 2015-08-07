@@ -90,7 +90,7 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
                 cnt += 1
 
         # update best camera/cnt
-        print "[DEBUG] Found %d points in front of both cameras.\n" % cnt
+        print "[DEBUG] Found %d points in front of both cameras." % cnt
         if cnt > bestCount:
             bestCount = cnt
             bestRt = Rt
@@ -442,8 +442,8 @@ def triangulateCross(Rt1, Rt2, x1, x2, K):
 
     diff1 = px1 - x1
     diff2 = px2 - x2
-    print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
-                                         np.sqrt(np.multiply(diff2, diff2).sum())) 
+    #print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
+    #                                     np.sqrt(np.multiply(diff2, diff2).sum())) 
 
     return X
 
