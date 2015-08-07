@@ -84,21 +84,22 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
 
             # use least squares triangulation
             x = triangulateCross(baseRt, Rt, m1[0], m2[0], K)
+            pts3D[x] = (m1, m2)
 
             # test if in front of both cameras
             if inFront(baseRt, x) and inFront(Rt, x):
                 cnt += 1
-                pts3D[x] = (m1, m2)
+                
 
 
         # update best camera/cnt
-        print "[DEBUG] Found %d points in front of both cameras." % cnt
+        #print "[DEBUG] Found %d points in front of both cameras." % cnt
         if cnt > bestCount:
             bestCount = cnt
             bestRt = Rt
             bestPts3D = pts3D
 
-    print "\nFound %d of %d possible 3D points in front of both cameras." % (bestCount, len(matches1))
+    print "Found %d of %d possible 3D points in front of both cameras.\n" % (bestCount, len(matches1))
 
     # Wrap bestRt, bestPts3D into a 'pair'
     pair = {}
@@ -437,8 +438,8 @@ def triangulateCross(Rt1, Rt2, x1, x2, K):
 
     diff1 = px1 - x1
     diff2 = px2 - x2
-    print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
-                                         np.sqrt(np.multiply(diff2, diff2).sum())) 
+    #print "Errors (x1, x2): (%f, %f)" % (np.sqrt(np.multiply(diff1, diff1).sum()),
+    #                                     np.sqrt(np.multiply(diff2, diff2).sum())) 
 
     return X
 
@@ -559,13 +560,13 @@ def showPointCloud(graph):
         px[i] = pt[0, 0]
         py[i] = pt[1, 0]
         pz[i] = pt[2, 0]
-        colors[i, :] = entry["color"].astype(np.float)/255.0
-        colors[i, :] = colors[i, [2, 1, 0]]
+        #colors[i, :] = entry["color"].astype(np.float)/255.0
+        #colors[i, :] = colors[i, [2, 1, 0]]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    ax.scatter(px, py, pz, c=colors, marker="o")
+    ax.scatter(px, py, pz, marker="o")
     plt.show()
 
 def toPLY(graph, plyfile):

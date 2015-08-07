@@ -99,7 +99,9 @@ for i in range(1, frames["num_images"]):
     # a 'pair' is basically the same as a 'graph', but it has only two frames
     E = frames["K"].T * F * frames["K"]
     pair = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
-#    bf.bundleAdjustment(pair, frames["K"])
+    bf.showPointCloud(pair)
+    bf.bundleAdjustment(pair, frames["K"])
+    bf.showPointCloud(pair)
     lastRt = pair["motion"][1]
 
     # add pair
