@@ -90,6 +90,8 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
             if inFront(baseRt, x) and inFront(Rt, x):
                 cnt += 1
                 
+
+
         # update best camera/cnt
         #print "[DEBUG] Found %d points in front of both cameras." % cnt
         if cnt > bestCount:
@@ -132,8 +134,6 @@ def updateGraph(graph, pair):
             graph_entry["frames"].append(pair_entry["frames"][1])
             graph_entry["2Dlocs"].append(pair_entry["2Dlocs"][1])
             graph_entry["3Dlocs"].append(pair_entry["3Dlocs"])
-
-            print "hi"
 
             del graph["3Dmatches"][key]
             graph["3Dmatches"][newKey] = graph_entry
@@ -284,7 +284,7 @@ def createViewPointMatrices(views, pts2D, num_frames, num_pts3D, frameOffset):
     """ Create view and 2D point matrices. """
 
     # create 2D point matrix and view matrix
-    pts2D_matrix = np.matrix(np.zeros((2 * num_frames, num_pts3D)))
+    pts2D_matrix = np.matrix(np.zeros((2 * num_frames, num_pts3D)), dtype=np.float)
     view_matrix = np.matrix(np.zeros((2 * num_frames, num_pts3D)), dtype=np.bool)
 
     for i, (frames, pts) in enumerate(zip(views, pts2D)):
