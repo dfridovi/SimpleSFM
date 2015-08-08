@@ -21,6 +21,8 @@ LO_ITER = 20000
 MAX_RMS_ERROR = 25.0
 OUTLIER_THRESH = 25.0
 NUM_OUTLIERS = 2
+NOISE_SD = 0.05
+ADJUST_FREQ = 3
 
 # set up
 IMPATH = "Images/TestSeriesWatch/"
@@ -104,23 +106,9 @@ for i in range(1, frames["num_images"]):
     E = frames["K"].T * F * frames["K"]
     pair = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
 
-    print "Repeated bundle adjustment..."
-    cnt = 0
-    while True:
-        cnt += 1
-        print "\nBundle adjustment, ROUND %d." % cnt
-
-        # every few rounds, remove outliers and jitter the initialization
-        if cnt % 3 == 0:
-            bf.outlierRejection(pair, frames["K"], NUM_OUTLIERS)
-            rms_error = bf.bundleAdjustment(pair, frames["K"], LO_ITER, 0.05)
-        else:
-            rms_error = bf.bundleAdjustment(pair, frames["K"], LO_ITER)
-        
-
-        if rms_error < MAX_RMS_ERROR:
-            break
-
+    print "Repeated pairwise bundle adjustment..."
+    bf.repeatedBundleAdjustment(pair, frames["K"], LO_ITER, ADJUST_FREQ,
+                                NOISE_SD, NUM_OUTLIERS, MAX_RMS_ERROR)
     lastRt = pair["motion"][1]
 
     # add pair
@@ -130,12 +118,9 @@ for i in range(1, frames["num_images"]):
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph, frames)
 
-#print "Course bundle adjustment..."
-#bf.bundleAdjustment(graph, frames["K"], LO_ITER)
-#bf.outlierRejection(graph, frames["K"], OUTLIER_THRESH)
-
-#print "Fine bundle adjustment..."
-#bf.bundleAdjustment(graph, frames["K"], HI_ITER)
+print "Repeated global bundle adjustment..."
+bf.repeatedBundleAdjustment(graph, frames["K"], LO_ITER, ADJUST_FREQ,
+                            NOISE_SD, NUM_OUTLIERS, MAX_RMS_ERROR)
 
 # pickle, just in case
 f = open(PKLFILE, "wb")

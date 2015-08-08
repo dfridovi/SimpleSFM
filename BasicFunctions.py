@@ -170,6 +170,25 @@ def finalizeGraph(graph, frames):
         color /= len(frames["images"])
         entry["color"] = color.astype(np.uint8)
 
+def repeatedBundleAdjustment(graph, K, niter, freq, sd, num_outliers, max_err):
+    """ Perform repeated bundle adjustment. """
+
+    cnt = 0
+    while True:
+        cnt += 1
+        print "\nBundle adjustment, ROUND %d." % cnt
+
+        # every few rounds, remove outliers and jitter the initialization
+        if cnt % freq == 0:
+            outlierRejection(graph, K, num_outliers)
+            rms_error = bf.bundleAdjustment(graph, K, niter, sd)
+        else:
+            rms_error = bf.bundleAdjustment(graph, K, niter)
+        
+        if rms_error < max_err:
+            break
+
+
 def bundleAdjustment(graph, K, niter=0, sd=0):
     """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
 
