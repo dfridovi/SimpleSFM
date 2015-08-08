@@ -17,9 +17,9 @@ RATIO = 1.0
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
 PLYFILE = "model.ply"
-LO_ITER = 5000
+LO_ITER = 75000
 HI_ITER = 250000
-OUTLIER_THRESH = 500.0
+OUTLIER_THRESH = 100.0
 
 # set up
 IMPATH = "Images/TestSeriesWatch/"
@@ -108,8 +108,8 @@ for i in range(1, frames["num_images"]):
     bf.bundleAdjustment(pair, frames["K"], LO_ITER)
     bf.outlierRejection(pair, frames["K"], OUTLIER_THRESH)
 
-#    print "Fine bundle adjustment..."
-#    bf.bundleAdjustment(pair, frames["K"], HI_ITER)
+    print "Fine bundle adjustment..."
+    bf.bundleAdjustment(pair, frames["K"], HI_ITER)
 #    bf.showPointCloud(pair)
     lastRt = pair["motion"][1]
 
@@ -124,8 +124,8 @@ print "Course bundle adjustment..."
 bf.bundleAdjustment(graph, frames["K"], LO_ITER)
 bf.outlierRejection(graph, frames["K"], OUTLIER_THRESH)
 
-#print "Fine bundle adjustment..."
-#bf.bundleAdjustment(graph, frames["K"], HI_ITER)
+print "Fine bundle adjustment..."
+bf.bundleAdjustment(graph, frames["K"], HI_ITER)
 
 # pickle, just in case
 f = open(PKLFILE, "wb")

@@ -191,9 +191,8 @@ def bundleAdjustment(graph, K, niter=0):
     result, success = leastsq(reprojectionError, x0, args=args, maxfev=niter)
 
     # get optimized motion and structure as lists
-    optimized_motion = np.vsplit(extractMotion(result, np.matrix(np.eye(3)),
-                                               baseRt, num_frames), 
-                                 num_frames)
+    optimized_motion = extractMotion(result, np.matrix(np.eye(3)),
+                                     baseRt, num_frames)
     optimized_structure = np.hsplit(extractStructure(result, num_frames), num_pts3D)
 
     # update/repack graph
@@ -288,7 +287,7 @@ def createViewPointMatrices(views, pts2D, num_frames, num_pts3D, frameOffset):
     pts2D_matrices = []
 
     for i in range(num_frames):
-        view_matrices.append(np.zeros(num_pts3D), dtype=np.bool)
+        view_matrices.append(np.zeros(num_pts3D, dtype=np.bool))
         pts2D_matrices.append(np.matrix(np.zeros((2, num_pts3D)), dtype=np.float))
 
     # iterate through all 3D points and fill in matrices
