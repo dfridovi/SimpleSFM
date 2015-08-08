@@ -179,15 +179,15 @@ def bundleAdjustment(graph, K, niter=0):
     num_pts3D = len(pts3D)
     frameOffset = graph["frameOffset"]
 
-    view_matrix, pts2D_matrix = createViewPointMatrices(views, pts2D, num_frames, 
-                                                        num_pts3D, frameOffset)
+    view_matrices, pts2D_matrices = createViewPointMatrices(views, pts2D, num_frames, 
+                                                            num_pts3D, frameOffset)
 
     # run Levenberg-Marquardt algorithm
     print "Running bundle adjustment..."
 
     global NUM_EVALS
     NUM_EVALS = 0
-    args = (K, baseRt, view_matrix, pts2D_matrix, num_frames)
+    args = (K, baseRt, view_matrices, pts2D_matrices, num_frames)
     result, success = leastsq(reprojectionError, x0, args=args, maxfev=niter)
 
     # get optimized motion and structure as lists
@@ -257,7 +257,7 @@ def unpackGraph(graph):
         # convert to axis-angle format and concatenate
         r = toAxisAngle(R)
         motion.append(r)
-        motion.append(np.array(t.T)[0])
+        motion.append(np.array(t.T)[0, :])
 
     motion = np.hstack(motion)
 
@@ -281,50 +281,55 @@ def unpackGraph(graph):
     return x0, baseRt, keys, views, pts2D, pts3D
 
 def createViewPointMatrices(views, pts2D, num_frames, num_pts3D, frameOffset):
-    """ Create view and 2D point matrices. """
+    """ Create frame-ordered lists of view and 2D point matrices. """
 
-    # create 2D point matrix and view matrix
-    pts2D_matrix = np.matrix(np.zeros((2 * num_frames, num_pts3D)), dtype=np.float)
-    view_matrix = np.matrix(np.zeros((2 * num_frames, num_pts3D)), dtype=np.bool)
+    # create lists of unpopulated matrices 
+    view_matrices = []
+    pts2D_matrices = []
 
+    for i in range(num_frames):
+        view_matrices.append(np.zeros(num_pts3D), dtype=np.bool)
+        pts2D_matrices.append(np.matrix(np.zeros((2, num_pts3D)), dtype=np.float))
+
+    # iterate through all 3D points and fill in matrices
     for i, (frames, pts) in enumerate(zip(views, pts2D)):
         for frame, pt in zip(frames, pts):
             frame -= frameOffset
-            pts2D_matrix[2 * frame:2 * (frame+1), i] = pt
-            view_matrix[2 * frame:2 * (frame+1), i] = True
 
-    return view_matrix, pts2D_matrix
+            view_matrix = view_matrices[frame]
+            pts2D_matrix = pts2D_matrices[frame]
 
-def reprojectionError(x, K, baseRt, view_matrix, pts2D_matrix, num_frames):
+            view_matrix[i] = True
+            pts2D_matrix[:, i] = pt
+            
+    return view_matrices, pts2D_matrices
+
+def reprojectionError(x, K, baseRt, view_matrices, pts2D_matrices, num_frames):
     """ Compute reprojection error for the graph with these parameters. """
 
     # unpack parameter vector
-    motion_matrix = extractMotion(x, K, baseRt, num_frames)
-    structure_matrix = extractStructure(x, num_frames)
+    motion_matrices = extractMotion(x, K, baseRt, num_frames)
+    structure_matrix = toHomogenous(extractStructure(x, num_frames))
 
-    # project all 3D points into all frames
-    proj_matrix = motion_matrix * toHomogenous(structure_matrix)
+    # project all 3D points and store residuals according to view matrices
+    residuals = []
+    for P, views, pts2D in zip(motion_matrices, view_matrices, pts2D_matrices):
+        proj = fromHomogenous(P * structure_matrix)
 
-    # de-homogenize all points
-    frames = np.vsplit(proj_matrix, num_frames)
-    dehomogenized_frames = []
-    for f in frames:
-        dehomogenized_frames.append(fromHomogenous(f))
+        # compute error
+        diff = proj - pts2D
 
-    proj_matrix = np.vstack(dehomogenized_frames)
+        # concatenate only the appropriate columns to residuals
+        residuals.append(diff[:, views])
 
-    # compute error
-    diff = pts2D_matrix - proj_matrix
-    diff[view_matrix is not True] = 0
-
-    error = np.array(diff).ravel()
+    # hstack, transpose, and ravel residuals
+    error = np.asarray(np.hstack(residuals).T).ravel()
  
     global NUM_EVALS
     NUM_EVALS += 1
 
     if NUM_EVALS % 1000 == 0:
-        num_views = view_matrix.sum()
-        rms_error = np.sqrt(np.multiply(error, error).sum()/(0.5*num_views))
+        rms_error = np.sqrt(np.multiply(error, error).sum()/(0.5*len(error)))
         print "Iteration %d, RMS error: %f" % (NUM_EVALS, rms_error)
     return error
 
@@ -385,7 +390,7 @@ def extractStructure(x, num_frames):
 
 def extractMotion(x, K, baseRt, num_frames):
     """ 
-    Extract camera poses (as a single large matrix) from parameter vector, 
+    Extract camera poses (as a list of matrices) from parameter vector, 
     including implicit base pose. 
     """
 
@@ -405,7 +410,7 @@ def extractMotion(x, K, baseRt, num_frames):
         R = fromAxisAngle(r)
         pose_matrices.append(K * np.hstack([R, np.matrix(t).T]))
 
-    return np.vstack(pose_matrices)
+    return pose_matrices
 
 def printGraphStats(graph):
     """ Compute and display summary statistics for graph dictionary. """
