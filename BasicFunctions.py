@@ -8,8 +8,10 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.optimize import leastsq
+from Queue import PriorityQueue
 
 NUM_EVALS = 0
+LAST_RMS_ERROR = 0.0
 
 def f2K(f):
     """ Convert focal length to camera intrinsic matrix. """
@@ -84,14 +86,12 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
 
             # use least squares triangulation
             x = triangulateLM(baseRt, Rt, m1[0], m2[0], K)
-            pts3D[x] = (m1, m2)
 
             # test if in front of both cameras
             if inFront(baseRt, x) and inFront(Rt, x):
                 cnt += 1
-                
-
-
+                pts3D[x] = (m1, m2)
+    
         # update best camera/cnt
         #print "[DEBUG] Found %d points in front of both cameras." % cnt
         if cnt > bestCount:
@@ -170,7 +170,7 @@ def finalizeGraph(graph, frames):
         color /= len(frames["images"])
         entry["color"] = color.astype(np.uint8)
 
-def bundleAdjustment(graph, K, niter=0):
+def bundleAdjustment(graph, K, niter=0, sd=0):
     """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
 
     # unpack graph parameters into 1D array for initial guess
@@ -182,11 +182,14 @@ def bundleAdjustment(graph, K, niter=0):
     view_matrices, pts2D_matrices = createViewPointMatrices(views, pts2D, num_frames, 
                                                             num_pts3D, frameOffset)
 
-    # run Levenberg-Marquardt algorithm
-    print "Running bundle adjustment..."
+    # insert Gaussian white noise
+    noise = np.random.randn(len(x0)) * sd
+    x0 += noise
 
+    # run Levenberg-Marquardt algorithm
     global NUM_EVALS
     NUM_EVALS = 0
+
     args = (K, baseRt, view_matrices, pts2D_matrices, num_frames)
     result, success = leastsq(reprojectionError, x0, args=args, maxfev=niter)
 
@@ -200,15 +203,13 @@ def bundleAdjustment(graph, K, niter=0):
     for key, pt3D in zip(keys, optimized_structure):
         graph["3Dmatches"][key]["3Dlocs"] = pt3D
 
-def outlierRejection(graph, K, thresh=100.0):
-    """ 
-    Examine graph and remove all points with max triangulation error 
-    over a given threshold.
-    """
+    return LAST_RMS_ERROR
+
+def outlierRejection(graph, K, N=10):
+    """ Examine graph and remove the top N outliers. """
 
     # iterate through all points
-    cnt = 0 
-    marked_keys = []
+    pq = PriorityQueue()
     for key, entry in graph["3Dmatches"].iteritems():
 
         X = entry["3Dlocs"]
@@ -223,26 +224,25 @@ def outlierRejection(graph, K, thresh=100.0):
             diff = proj - x
 
             err = np.sqrt(np.multiply(diff, diff).sum())
-            print (frame, err)
+            #print (frame, err)
 
             errors.append(err)
 
-        # get max error and remove if above threshold
-        max_error = np.array(errors).max()
-        if max_error > thresh:
-            marked_keys.append(key)
-            cnt += 1
+        # get mean error and add to priority queue
+        # (priority is reciprocal of error since this is a MinPQ)
+        mean_error = np.array(errors).mean()
+        pq.put_nowait((1.0 / mean_error, key))
 
-    # remove marked keys
-    for key in marked_keys:
+    # remove N keys
+    for i in range(N):
+        score, key = pq.get_nowait()
         del graph["3Dmatches"][key]
+        pq.task_done()
 
-    print "Removed %d outliers." % cnt
+    print "Removed %d outliers." % N
 
 def unpackGraph(graph):
     """ Extract parameters for optimization. """
-
-    print "Unpacking graph for optimization..."
 
     # extract motion parameters
     baseRt = graph["motion"][0]
@@ -323,13 +323,16 @@ def reprojectionError(x, K, baseRt, view_matrices, pts2D_matrices, num_frames):
 
     # hstack, transpose, and ravel residuals
     error = np.asarray(np.hstack(residuals).T).ravel()
+    rms_error = np.sqrt(np.multiply(error, error).sum()/(0.5*len(error)))
  
     global NUM_EVALS
-    NUM_EVALS += 1
-
+    global LAST_RMS_ERROR
     if NUM_EVALS % 1000 == 0:
-        rms_error = np.sqrt(np.multiply(error, error).sum()/(0.5*len(error)))
         print "Iteration %d, RMS error: %f" % (NUM_EVALS, rms_error)
+
+    NUM_EVALS += 1
+    LAST_RMS_ERROR = rms_error
+
     return error
 
 def toAxisAngle(R):

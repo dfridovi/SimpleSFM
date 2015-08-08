@@ -17,9 +17,10 @@ RATIO = 1.0
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
 PLYFILE = "model.ply"
-LO_ITER = 75000
-HI_ITER = 250000
-OUTLIER_THRESH = 100.0
+LO_ITER = 20000
+MAX_RMS_ERROR = 25.0
+OUTLIER_THRESH = 25.0
+NUM_OUTLIERS = 2
 
 # set up
 IMPATH = "Images/TestSeriesWatch/"
@@ -102,15 +103,24 @@ for i in range(1, frames["num_images"]):
     # a 'pair' is basically the same as a 'graph', but it has only two frames
     E = frames["K"].T * F * frames["K"]
     pair = bf.E2Rt(E, frames["K"], lastRt, i-1, kp1, kp2, inliers)
-#    bf.showPointCloud(pair)
 
-    print "Course bundle adjustment..."
-    bf.bundleAdjustment(pair, frames["K"], LO_ITER)
-    bf.outlierRejection(pair, frames["K"], OUTLIER_THRESH)
+    print "Repeated bundle adjustment..."
+    cnt = 0
+    while True:
+        cnt += 1
+        print "\nBundle adjustment, ROUND %d." % cnt
 
-    print "Fine bundle adjustment..."
-    bf.bundleAdjustment(pair, frames["K"], HI_ITER)
-#    bf.showPointCloud(pair)
+        # every few rounds, remove outliers and jitter the initialization
+        if cnt % 3 == 0:
+            bf.outlierRejection(pair, frames["K"], NUM_OUTLIERS)
+            rms_error = bf.bundleAdjustment(pair, frames["K"], LO_ITER, 0.05)
+        else:
+            rms_error = bf.bundleAdjustment(pair, frames["K"], LO_ITER)
+        
+
+        if rms_error < MAX_RMS_ERROR:
+            break
+
     lastRt = pair["motion"][1]
 
     # add pair
@@ -120,12 +130,12 @@ for i in range(1, frames["num_images"]):
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph, frames)
 
-print "Course bundle adjustment..."
-bf.bundleAdjustment(graph, frames["K"], LO_ITER)
-bf.outlierRejection(graph, frames["K"], OUTLIER_THRESH)
+#print "Course bundle adjustment..."
+#bf.bundleAdjustment(graph, frames["K"], LO_ITER)
+#bf.outlierRejection(graph, frames["K"], OUTLIER_THRESH)
 
-print "Fine bundle adjustment..."
-bf.bundleAdjustment(graph, frames["K"], HI_ITER)
+#print "Fine bundle adjustment..."
+#bf.bundleAdjustment(graph, frames["K"], HI_ITER)
 
 # pickle, just in case
 f = open(PKLFILE, "wb")
