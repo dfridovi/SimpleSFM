@@ -188,7 +188,7 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
 
         # every few rounds, remove outliers and jitter the initialization
         if cnt % freq == 0:
-#            outlierRejection(graph, K, percent_outliers, float("inf"))
+            outlierRejection(graph, K, percent_outliers, float("inf"))
             rms_error = bundleAdjustment(graph, K, niter, sd)
         else:
             rms_error = bundleAdjustment(graph, K, niter)
@@ -196,7 +196,7 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
         if rms_error < max_err:
             break
 
-#    outlierRejection(graph, K, 0.0, outlier_max_dist)
+    outlierRejection(graph, K, 0.0, outlier_max_dist)
 
 
 
@@ -659,7 +659,7 @@ def imsave(img, imfile):
 
     mpimg.imsave(imfile, img)
 
-def plotTrajectory(graph):
+def plotTrajectory(graph, max_dist=1e10):
     """ Show estimated camera trajectory. """
 
     tx = []
@@ -667,9 +667,10 @@ def plotTrajectory(graph):
     tz = []
     for Rt in graph["motion"]:
         t = Rt[:, -1:]
-        tx.append(t[0, 0])
-        ty.append(t[1, 0])
-        tz.append(t[2, 0])
+        if np.linalg.norm(t) < max_dist:
+            tx.append(t[0, 0])
+            ty.append(t[1, 0])
+            tz.append(t[2, 0])
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -677,7 +678,7 @@ def plotTrajectory(graph):
     ax.scatter(tx, ty, tz, marker="o")
     plt.show()
 
-def showPointCloud(graph):
+def showPointCloud(graph, max_dist=1e10):
     """ Show point cloud. """
 
     num_pts = len(graph["3Dmatches"].keys())
@@ -689,11 +690,12 @@ def showPointCloud(graph):
 
     for i, (key, entry) in enumerate(graph["3Dmatches"].iteritems()):
         pt = entry["3Dlocs"]
-        px[i] = pt[0, 0]
-        py[i] = pt[1, 0]
-        pz[i] = pt[2, 0]
-        #colors[i, :] = entry["color"].astype(np.float)/255.0
-        #colors[i, :] = colors[i, [2, 1, 0]]
+        if np.linalg.norm(pt) < max_dist:
+            px[i] = pt[0, 0]
+            py[i] = pt[1, 0]
+            pz[i] = pt[2, 0]
+            #colors[i, :] = entry["color"].astype(np.float)/255.0
+            #colors[i, :] = colors[i, [2, 1, 0]]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
