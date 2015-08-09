@@ -68,11 +68,15 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
     Rt4 = np.hstack([R2, t2])
 
     # transform each Rt to be relative to baseRt
-    baseRt4x4 = np.vstack([baseRt, np.matrix([0, 0, 0, 1], dtype=np.float)])
-    Rt1 = Rt1 * baseRt4x4
-    Rt2 = Rt2 * baseRt4x4
-    Rt3 = Rt3 * baseRt4x4
-    Rt4 = Rt4 * baseRt4x4
+    baseRtinv = np.hstack([baseRt[:, :-1].T, -baseRt[:, :-1].T * baseRt[:, -1:]])
+    Rt1 = np.hstack([baseRtinv[:, :-1] * Rt1[:, :-1], 
+                     baseRtinv[:, :-1] * Rt1[:, -1:] + baseRtinv[:, -1:]])
+    Rt2 = np.hstack([baseRtinv[:, :-1] * Rt2[:, :-1], 
+                     baseRtinv[:, :-1] * Rt2[:, -1:] + baseRtinv[:, -1:]])
+    Rt3 = np.hstack([baseRtinv[:, :-1] * Rt3[:, :-1], 
+                     baseRtinv[:, :-1] * Rt3[:, -1:] + baseRtinv[:, -1:]])
+    Rt4 = np.hstack([baseRtinv[:, :-1] * Rt4[:, :-1], 
+                     baseRtinv[:, :-1] * Rt4[:, -1:] + baseRtinv[:, -1:]])
 
     # test how many points are in front of both cameras    
     bestRt = None
@@ -181,7 +185,7 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
 
         # every few rounds, remove outliers and jitter the initialization
         if cnt % freq == 0:
-            outlierRejection(graph, K, percent_outliers, float("inf"))
+#            outlierRejection(graph, K, percent_outliers, float("inf"))
             rms_error = bundleAdjustment(graph, K, niter, sd)
         else:
             rms_error = bundleAdjustment(graph, K, niter)
@@ -189,7 +193,7 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
         if rms_error < max_err:
             break
 
-    outlierRejection(graph, K, 0.0, outlier_max_dist)
+#    outlierRejection(graph, K, 0.0, outlier_max_dist)
 
 
 
