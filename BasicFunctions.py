@@ -68,15 +68,18 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
     Rt4 = np.hstack([R2, t2])
 
     # transform each Rt to be relative to baseRt
-    baseRtinv = np.hstack([baseRt[:, :-1].T, -baseRt[:, :-1].T * baseRt[:, -1:]])
-    Rt1 = np.hstack([baseRtinv[:, :-1] * Rt1[:, :-1], 
-                     baseRtinv[:, :-1] * Rt1[:, -1:] + baseRtinv[:, -1:]])
-    Rt2 = np.hstack([baseRtinv[:, :-1] * Rt2[:, :-1], 
-                     baseRtinv[:, :-1] * Rt2[:, -1:] + baseRtinv[:, -1:]])
-    Rt3 = np.hstack([baseRtinv[:, :-1] * Rt3[:, :-1], 
-                     baseRtinv[:, :-1] * Rt3[:, -1:] + baseRtinv[:, -1:]])
-    Rt4 = np.hstack([baseRtinv[:, :-1] * Rt4[:, :-1], 
-                     baseRtinv[:, :-1] * Rt4[:, -1:] + baseRtinv[:, -1:]])
+    baseRtinv = np.vstack([np.hstack([baseRt[:, :-1].T, 
+                                     -baseRt[:, :-1].T * baseRt[:, -1:]]),
+                           np.matrix([[0, 0, 0, 1]])])
+    Rt1inv = np.linalg.inv(np.vstack([Rt1, np.matrix([[0, 0, 0, 1]])]))
+    Rt2inv = np.linalg.inv(np.vstack([Rt2, np.matrix([[0, 0, 0, 1]])]))
+    Rt3inv = np.linalg.inv(np.vstack([Rt3, np.matrix([[0, 0, 0, 1]])]))
+    Rt4inv = np.linalg.inv(np.vstack([Rt4, np.matrix([[0, 0, 0, 1]])]))
+
+    Rt1 = np.linalg.inv(Rt1inv * baseRtinv)[:-1, :]
+    Rt2 = np.linalg.inv(Rt2inv * baseRtinv)[:-1, :]
+    Rt3 = np.linalg.inv(Rt3inv * baseRtinv)[:-1, :]
+    Rt4 = np.linalg.inv(Rt4inv * baseRtinv)[:-1, :]
 
     # test how many points are in front of both cameras    
     bestRt = None
