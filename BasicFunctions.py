@@ -170,7 +170,7 @@ def finalizeGraph(graph, frames):
         color /= len(frames["images"])
         entry["color"] = color.astype(np.uint8)
 
-def repeatedBundleAdjustment(graph, K, niter, freq, sd, num_outliers, max_err):
+def repeatedBundleAdjustment(graph, K, niter, freq, sd, percent_outliers, max_err):
     """ Perform repeated bundle adjustment. """
 
     cnt = 0
@@ -180,10 +180,10 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd, num_outliers, max_err):
 
         # every few rounds, remove outliers and jitter the initialization
         if cnt % freq == 0:
-            outlierRejection(graph, K, num_outliers)
-            rms_error = bf.bundleAdjustment(graph, K, niter, sd)
+            outlierRejection(graph, K, percent_outliers)
+            rms_error = bundleAdjustment(graph, K, niter, sd)
         else:
-            rms_error = bf.bundleAdjustment(graph, K, niter)
+            rms_error = bundleAdjustment(graph, K, niter)
         
         if rms_error < max_err:
             break
@@ -224,8 +224,8 @@ def bundleAdjustment(graph, K, niter=0, sd=0):
 
     return LAST_RMS_ERROR
 
-def outlierRejection(graph, K, N=10):
-    """ Examine graph and remove the top N outliers. """
+def outlierRejection(graph, K, percent=5.0):
+    """ Examine graph and remove some top percentage of outliers. """
 
     # iterate through all points
     pq = PriorityQueue()
@@ -252,7 +252,8 @@ def outlierRejection(graph, K, N=10):
         mean_error = np.array(errors).mean()
         pq.put_nowait((1.0 / mean_error, key))
 
-    # remove N keys
+    # remove worst keys
+    N = int((percent/100.0) * len(graph["3Dmatches"].keys()))
     for i in range(N):
         score, key = pq.get_nowait()
         del graph["3Dmatches"][key]
