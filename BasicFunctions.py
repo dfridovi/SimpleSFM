@@ -196,7 +196,7 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
         if rms_error < max_err:
             break
 
-    outlierRejection(graph, K, 0.0, outlier_max_dist)
+#    outlierRejection(graph, K, 0.0, outlier_max_dist)
 
 
 
