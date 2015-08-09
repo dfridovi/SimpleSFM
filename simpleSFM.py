@@ -18,11 +18,11 @@ MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
 PLYFILE = "model.ply"
 LO_ITER = 20000
-MAX_RMS_ERROR = 0.5
-OUTLIER_MAX_DIST = 10
+MAX_RMS_ERROR = 15.0
+OUTLIER_MAX_DIST = 10.0
 PERCENT_OUTLIERS = 10.0
-NOISE_SD = 0.01
-ADJUST_FREQ = 1
+NOISE_SD = 0.05
+ADJUST_FREQ = 3
 
 # set up
 IMPATH = "Images/TestSeriesWatch/"
@@ -108,7 +108,8 @@ for i in range(1, frames["num_images"]):
 
     print "Repeated pairwise bundle adjustment..."
     bf.repeatedBundleAdjustment(pair, frames["K"], LO_ITER, ADJUST_FREQ,
-                                NOISE_SD, PERCENT_OUTLIERS, MAX_RMS_ERROR)
+                                NOISE_SD, PERCENT_OUTLIERS, OUTLIER_MAX_DIST,
+                                MAX_RMS_ERROR)
     lastRt = pair["motion"][1]
 
     # add pair
@@ -120,7 +121,8 @@ bf.finalizeGraph(graph, frames)
 
 print "Repeated global bundle adjustment..."
 #bf.repeatedBundleAdjustment(graph, frames["K"], LO_ITER, ADJUST_FREQ,
-#                            NOISE_SD, PERCENT_OUTLIERS, MAX_RMS_ERROR)
+#                            NOISE_SD, PERCENT_OUTLIERS, OUTLIER_MAX_DIST, 
+#                            MAX_RMS_ERROR)
 
 # pickle, just in case
 f = open(PKLFILE, "wb")

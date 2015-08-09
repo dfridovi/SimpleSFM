@@ -170,7 +170,8 @@ def finalizeGraph(graph, frames):
         color /= len(frames["images"])
         entry["color"] = color.astype(np.uint8)
 
-def repeatedBundleAdjustment(graph, K, niter, freq, sd, percent_outliers, max_err):
+def repeatedBundleAdjustment(graph, K, niter, freq, sd, 
+                             percent_outliers, outlier_max_dist, max_err):
     """ Perform repeated bundle adjustment. """
 
     cnt = 0
@@ -180,13 +181,16 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd, percent_outliers, max_er
 
         # every few rounds, remove outliers and jitter the initialization
         if cnt % freq == 0:
-            outlierRejection(graph, K, percent_outliers)
+            outlierRejection(graph, K, percent_outliers, float("inf"))
             rms_error = bundleAdjustment(graph, K, niter, sd)
         else:
             rms_error = bundleAdjustment(graph, K, niter)
         
         if rms_error < max_err:
             break
+
+    outlierRejection(graph, K, 0.0, outlier_max_dist)
+
 
 
 def bundleAdjustment(graph, K, niter=0, sd=0):
@@ -224,14 +228,23 @@ def bundleAdjustment(graph, K, niter=0, sd=0):
 
     return LAST_RMS_ERROR
 
-def outlierRejection(graph, K, percent=5.0):
-    """ Examine graph and remove some top percentage of outliers. """
+def outlierRejection(graph, K, percent=5.0, max_dist=5.0):
+    """ 
+    Examine graph and remove some top percentage of outliers 
+    and those outside a certain radius. 
+    """
 
     # iterate through all points
     pq = PriorityQueue()
+    marked_keys = []
     for key, entry in graph["3Dmatches"].iteritems():
 
         X = entry["3Dlocs"]
+
+        # mark and continue if too far away from the origin
+        if np.linalg.norm(X) > max_dist:
+            marked_keys.append(key)
+            continue
 
         # project into each frame
         errors = []
@@ -253,13 +266,17 @@ def outlierRejection(graph, K, percent=5.0):
         pq.put_nowait((1.0 / mean_error, key))
 
     # remove worst keys
-    N = int((percent/100.0) * len(graph["3Dmatches"].keys()))
+    N = max(0, int((percent/100.0) * len(graph["3Dmatches"].keys())) - len(marked_keys))
     for i in range(N):
         score, key = pq.get_nowait()
         del graph["3Dmatches"][key]
         pq.task_done()
 
-    print "Removed %d outliers." % N
+    # remove keys out of range
+    for key in marked_keys:
+        del graph["3Dmatches"][key]
+
+    print "Removed %d outliers." % (N + len(marked_keys))
 
 def unpackGraph(graph):
     """ Extract parameters for optimization. """
