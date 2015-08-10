@@ -372,9 +372,20 @@ def reprojectionError(x, K, baseRt, view_matrices, pts2D_matrices, num_frames):
 
     return error
 
+def sigmoid(x):
+    """ Sigmoid function to map angles to positive real numbers < 1."""
+
+    return 1.0 / (1.0 + np.exp(x))
+
+def inverseSigmoid(x):
+    """ Invert sigmoid function. """
+
+    print 1.0/x - 1.0
+    return np.log((1.0 / x) - 1.0)
+
 def toAxisAngle(R):
     """ 
-    Decompose rotation R to axis-angle representation, where np.pi/2 + tan(angle),
+    Decompose rotation R to axis-angle representation, where sigmoid(angle),
     is given as the magnitude of the axis vector.
     """
 
@@ -384,30 +395,30 @@ def toAxisAngle(R):
     print "Axis: " + str(axis.T)
 
     # try both possible angles
-    angle1 = np.arccos(0.5 * (np.trace(R) - 1))
+    angle1 = np.arccos(0.5 * (np.trace(R) - 1.0))
     angle2 = -angle1
 
-    R1 = fromAxisAngle(axis * (np.tan(angle1) + np.pi/2.0))
-    R2 = fromAxisAngle(axis * (np.tan(angle2) + np.pi/2.0))
+    R1 = fromAxisAngle(axis * sigmoid(angle1))
+    R2 = fromAxisAngle(axis * sigmoid(angle2))
 
     err1 = R - R1
     err2 = R - R2
 
     if np.linalg.norm(err1) < np.linalg.norm(err2):
         print "Angle: %f" % angle1
-        return axis * (np.tan(angle1) + np.pi/2.0)
+        return axis * sigmoid(angle1)
 
     print "Angle: %f" % angle2
-    return axis * (np.tan(angle2) + np.pi/2.0)
+    return axis * sigmoid(angle2)
 
 
 def fromAxisAngle(r):
     """ Convert axis-angle representation to full rotation matrix. """
 
     # from https://en.wikipedia.org/wiki/Rotation_matrix
-    angle = np.arctan(np.linalg.norm(r) - np.pi/2.0)
+    angle = inverseSigmoid(np.linalg.norm(r))
 #    print angle
-    axis = r / angle
+    axis = r / np.linalg.norm(r)
 
     cross = np.matrix([[0, -axis[2], axis[1]],
                        [axis[2], 0, -axis[0]],
