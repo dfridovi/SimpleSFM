@@ -68,18 +68,11 @@ def E2Rt(E, K, baseRt, frameIdx, kp1, kp2, matches):
     Rt4 = np.hstack([R2, t2])
 
     # transform each Rt to be relative to baseRt
-    baseRtinv = np.vstack([np.hstack([baseRt[:, :-1].T, 
-                                     -baseRt[:, :-1].T * baseRt[:, -1:]]),
-                           np.matrix([[0, 0, 0, 1]])])
-    Rt1inv = np.linalg.inv(np.vstack([Rt1, np.matrix([[0, 0, 0, 1]])]))
-    Rt2inv = np.linalg.inv(np.vstack([Rt2, np.matrix([[0, 0, 0, 1]])]))
-    Rt3inv = np.linalg.inv(np.vstack([Rt3, np.matrix([[0, 0, 0, 1]])]))
-    Rt4inv = np.linalg.inv(np.vstack([Rt4, np.matrix([[0, 0, 0, 1]])]))
-
-    Rt1 = np.linalg.inv(Rt1inv * baseRtinv)[:-1, :]
-    Rt2 = np.linalg.inv(Rt2inv * baseRtinv)[:-1, :]
-    Rt3 = np.linalg.inv(Rt3inv * baseRtinv)[:-1, :]
-    Rt4 = np.linalg.inv(Rt4inv * baseRtinv)[:-1, :]
+    baseRt4x4 = np.vstack([baseRt, np.matrix([0, 0, 0, 1], dtype=np.float)])
+    Rt1 = Rt1 * baseRt4x4
+    Rt2 = Rt2 * baseRt4x4
+    Rt3 = Rt3 * baseRt4x4
+    Rt4 = Rt4 * baseRt4x4
 
     # test how many points are in front of both cameras    
     bestRt = None

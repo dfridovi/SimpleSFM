@@ -119,10 +119,12 @@ for i in range(1, frames["num_images"]):
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph, frames)
 
+"""
 print "Repeated global bundle adjustment..."
 bf.repeatedBundleAdjustment(graph, frames["K"], LO_ITER, ADJUST_FREQ,
                             NOISE_SD, PERCENT_OUTLIERS, OUTLIER_MAX_DIST, 
                             MAX_RMS_ERROR)
+"""
 
 # pickle, just in case
 f = open(PKLFILE, "wb")
