@@ -12,8 +12,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import cPickle as pickle
 
 # parameters
-visualize = False
-RATIO = 1.0
+visualize = True
+RATIO = 0.2
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
 PLYFILE = "model.ply"
@@ -57,7 +57,7 @@ lastRt = graph["motion"][0]
 # for adjacent frames, detect ORB keypoints and extimate F
 for i in range(1, frames["num_images"]):
 
-    print "\nNow analyzing frames %d and %d of %d." % (i-1, i, frames["num_images"])
+    print "\nNow analyzing frames %d and %d of %d." % (i-1, i, frames["num_images"]-1)
 
     # read in images
     img1 = cv2.imread(IMPATH + frames["files"][i - 1])
@@ -83,7 +83,7 @@ for i in range(1, frames["num_images"]):
     # store all the good matches as per Lowe's ratio test.
     good_matches = []
     for m, n in matches:
-        if m.distance < 0.7 * n.distance:
+        if m.distance < 0.8 * n.distance:
             good_matches.append(m)
 
     # estimate F if sufficient good matches

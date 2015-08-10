@@ -380,7 +380,6 @@ def sigmoid(x):
 def inverseSigmoid(x):
     """ Invert sigmoid function. """
 
-    print 1.0/x - 1.0
     return np.log((1.0 / x) - 1.0)
 
 def toAxisAngle(R):
@@ -389,27 +388,13 @@ def toAxisAngle(R):
     is given as the magnitude of the axis vector.
     """
 
-    # extract 1-eigenvector
-    U, V = np.linalg.eig(R)
-    axis = np.array(np.real(V[:, 2]).T)[0]
-    print "Axis: " + str(axis.T)
+    # from https://en.wikipedia.org/wiki/Axis-angle-representation
+    angle = np.arccos(0.5 * (np.trace(R) - 1.0))
+    axis = 0.5/np.sin(angle) * np.array([R[2, 1] - R[1, 2],
+                                         R[0, 2] - R[2, 0],
+                                         R[1, 0] - R[0, 1]])
 
-    # try both possible angles
-    angle1 = np.arccos(0.5 * (np.trace(R) - 1.0))
-    angle2 = -angle1
-
-    R1 = fromAxisAngle(axis * sigmoid(angle1))
-    R2 = fromAxisAngle(axis * sigmoid(angle2))
-
-    err1 = R - R1
-    err2 = R - R2
-
-    if np.linalg.norm(err1) < np.linalg.norm(err2):
-        print "Angle: %f" % angle1
-        return axis * sigmoid(angle1)
-
-    print "Angle: %f" % angle2
-    return axis * sigmoid(angle2)
+    return axis * sigmoid(angle)
 
 
 def fromAxisAngle(r):
@@ -417,7 +402,6 @@ def fromAxisAngle(r):
 
     # from https://en.wikipedia.org/wiki/Rotation_matrix
     angle = inverseSigmoid(np.linalg.norm(r))
-#    print angle
     axis = r / np.linalg.norm(r)
 
     cross = np.matrix([[0, -axis[2], axis[1]],
