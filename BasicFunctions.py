@@ -374,33 +374,39 @@ def reprojectionError(x, K, baseRt, view_matrices, pts2D_matrices, num_frames):
 
 def toAxisAngle(R):
     """ 
-    Decompose rotation R to axis-angle representation, where the angle,
-    in radians, is given as the magnitude of the axis vector.
+    Decompose rotation R to axis-angle representation, where np.pi/2 + tan(angle),
+    is given as the magnitude of the axis vector.
     """
 
     # extract 1-eigenvector
     U, V = np.linalg.eig(R)
     axis = np.array(np.real(V[:, 2]).T)[0]
+    print "Axis: " + str(axis.T)
 
     # try both possible angles
     angle1 = np.arccos(0.5 * (np.trace(R) - 1))
-    angle2 = 2 * np.pi - angle1
+    angle2 = -angle1
 
-    R1 = fromAxisAngle(axis * angle1)
-    R2 = fromAxisAngle(axis * angle2)
+    R1 = fromAxisAngle(axis * (np.tan(angle1) + np.pi/2.0))
+    R2 = fromAxisAngle(axis * (np.tan(angle2) + np.pi/2.0))
 
     err1 = R - R1
     err2 = R - R2
 
-    if np.multiply(err1, err1).sum() < np.multiply(err2, err2).sum():
-        return axis * angle1
-    return axis * angle2
+    if np.linalg.norm(err1) < np.linalg.norm(err2):
+        print "Angle: %f" % angle1
+        return axis * (np.tan(angle1) + np.pi/2.0)
+
+    print "Angle: %f" % angle2
+    return axis * (np.tan(angle2) + np.pi/2.0)
+
 
 def fromAxisAngle(r):
     """ Convert axis-angle representation to full rotation matrix. """
 
     # from https://en.wikipedia.org/wiki/Rotation_matrix
-    angle = np.sqrt(np.multiply(r, r).sum())
+    angle = np.arctan(np.linalg.norm(r) - np.pi/2.0)
+#    print angle
     axis = r / angle
 
     cross = np.matrix([[0, -axis[2], axis[1]],
