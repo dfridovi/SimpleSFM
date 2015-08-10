@@ -12,7 +12,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import cPickle as pickle
 
 # parameters
-visualize = True
+visualize = False
 RATIO = 0.2
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
@@ -119,12 +119,10 @@ for i in range(1, frames["num_images"]):
 bf.printGraphStats(graph)
 bf.finalizeGraph(graph, frames)
 
-"""
 print "Repeated global bundle adjustment..."
 bf.repeatedBundleAdjustment(graph, frames["K"], LO_ITER, ADJUST_FREQ,
                             NOISE_SD, PERCENT_OUTLIERS, OUTLIER_MAX_DIST, 
                             MAX_RMS_ERROR)
-"""
 
 # pickle, just in case
 f = open(PKLFILE, "wb")
