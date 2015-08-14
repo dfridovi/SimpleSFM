@@ -11,7 +11,7 @@ from scipy.optimize import leastsq
 from Queue import PriorityQueue
 
 NUM_EVALS = 0
-LAST_RMS_ERROR = 0.0
+LAST_AVG_ERROR = 0.0
 
 def f2K(f):
     """ Convert focal length to camera intrinsic matrix. """
@@ -182,18 +182,18 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
         # every few rounds, remove outliers and jitter the initialization
         if cnt % freq == 0:
             outlierRejection(graph, K, percent_outliers, float("inf"))
-            rms_error = bundleAdjustment(graph, K, niter, sd)
+            error = bundleAdjustment(graph, K, niter, sd)
         else:
-            rms_error = bundleAdjustment(graph, K, niter)
+            error = bundleAdjustment(graph, K, niter)
         
-        if rms_error < max_err:
+        if error < max_err:
             break
 
-#    outlierRejection(graph, K, 0.0, outlier_max_dist)
+    outlierRejection(graph, K, 0.0, outlier_max_dist)
 
 
 
-def bundleAdjustment(graph, K, niter=0, sd=0):
+def bundleAdjustment(graph, K, niter=0, sd=0, cutoff=15.0):
     """ Run bundle adjustment to joinly optimize camera poses and 3D points. """
 
     # unpack graph parameters into 1D array for initial guess
@@ -213,7 +213,7 @@ def bundleAdjustment(graph, K, niter=0, sd=0):
     global NUM_EVALS
     NUM_EVALS = 0
 
-    args = (K, baseRt, view_matrices, pts2D_matrices, num_frames)
+    args = (K, baseRt, view_matrices, pts2D_matrices, num_frames, cutoff)
     result, success = leastsq(reprojectionError, x0, args=args, maxfev=niter)
 
     # get optimized motion and structure as lists
@@ -226,7 +226,8 @@ def bundleAdjustment(graph, K, niter=0, sd=0):
     for key, pt3D in zip(keys, optimized_structure):
         graph["3Dmatches"][key]["3Dlocs"] = pt3D
 
-    return LAST_RMS_ERROR
+    global LAST_AVG_ERROR
+    return LAST_AVG_ERROR
 
 def outlierRejection(graph, K, percent=5.0, max_dist=5.0):
     """ 
@@ -340,7 +341,7 @@ def createViewPointMatrices(views, pts2D, num_frames, num_pts3D, frameOffset):
             
     return view_matrices, pts2D_matrices
 
-def reprojectionError(x, K, baseRt, view_matrices, pts2D_matrices, num_frames):
+def reprojectionError(x, K, baseRt, view_matrices, pts2D_matrices, num_frames, cutoff):
     """ Compute reprojection error for the graph with these parameters. """
 
     # unpack parameter vector
@@ -358,19 +359,30 @@ def reprojectionError(x, K, baseRt, view_matrices, pts2D_matrices, num_frames):
         # concatenate only the appropriate columns to residuals
         residuals.append(diff[:, views])
 
-    # hstack, transpose, and ravel residuals
-    error = np.asarray(np.hstack(residuals).T).ravel()
-    rms_error = np.sqrt(np.multiply(error, error).sum()/(0.5*len(error)))
- 
+    # hstack residuals and compute distances
+    error = np.asarray(np.hstack(residuals))
+    sq_error = np.square(error)
+    dists = np.sqrt(sq_error[0, :] + sq_error[1, :])
+
+    # reweight with Tukey M-estimator
+    weights = np.square(1.0 - np.square(dists / cutoff))
+    weights[dists > cutoff] = 0.0 
+
+    weighted_dists = np.multiply(weights, dists).ravel()
+    weighted_error = np.multiply(np.vstack([weights, weights]), error).ravel()
+
+    avg = dists.ravel().sum() / len(weighted_dists)
+    weighted = weighted_dists.sum() / len(weighted_dists)
+
     global NUM_EVALS
-    global LAST_RMS_ERROR
+    global LAST_AVG_ERROR
     if NUM_EVALS % 1000 == 0:
-        print "Iteration %d, RMS error: %f" % (NUM_EVALS, rms_error)
+        print "Iteration %d, Error: %f, Weighted: %f" % (NUM_EVALS, avg, weighted)
 
     NUM_EVALS += 1
-    LAST_RMS_ERROR = rms_error
+    LAST_AVG_ERROR = weighted
 
-    return error
+    return weighted_error
 
 def sigmoid(x):
     """ Sigmoid function to map angles to positive real numbers < 1."""

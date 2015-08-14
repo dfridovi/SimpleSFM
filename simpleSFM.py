@@ -12,14 +12,14 @@ from mpl_toolkits.mplot3d import Axes3D
 import cPickle as pickle
 
 # parameters
-visualize = False
+visualize = True
 RATIO = 0.2
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
 PLYFILE = "model.ply"
 LO_ITER = 20000
 MAX_RMS_ERROR = 15.0
-OUTLIER_MAX_DIST = 5.0
+OUTLIER_MAX_DIST = 10.0
 PERCENT_OUTLIERS = 10.0
 NOISE_SD = 0.05
 ADJUST_FREQ = 3
@@ -66,6 +66,9 @@ for i in range(1, frames["num_images"]):
     img1 = np.flipud(np.fliplr(cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)))
     img2 = np.flipud(np.fliplr(cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)))
 
+#    img1 = cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)
+#    img2 = cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)
+
     frames["images"].append(img1)
     if i == frames["num_images"] - 1:
         frames["images"].append(img2)
@@ -83,7 +86,7 @@ for i in range(1, frames["num_images"]):
     # store all the good matches as per Lowe's ratio test.
     good_matches = []
     for m, n in matches:
-        if m.distance < 0.8 * n.distance:
+        if m.distance < 0.7 * n.distance:
             good_matches.append(m)
 
     # estimate F if sufficient good matches
