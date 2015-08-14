@@ -181,7 +181,7 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
 
         # every few rounds, remove outliers and jitter the initialization
         if cnt % freq == 0:
-            outlierRejection(graph, K, percent_outliers, float("inf"))
+            outlierRejection(graph, K, percent_outliers, outlier_max_dist)
             error = bundleAdjustment(graph, K, niter, sd)
         else:
             error = bundleAdjustment(graph, K, niter)
@@ -189,7 +189,7 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
         if error < max_err:
             break
 
-    outlierRejection(graph, K, 0.0, outlier_max_dist)
+    outlierRejection(graph, K, percent_outliers, outlier_max_dist)
 
 
 
@@ -700,13 +700,13 @@ def showPointCloud(graph, max_dist=1e10):
             px[i] = pt[0, 0]
             py[i] = pt[1, 0]
             pz[i] = pt[2, 0]
-            #colors[i, :] = entry["color"].astype(np.float)/255.0
-            #colors[i, :] = colors[i, [2, 1, 0]]
+            colors[i, :] = entry["color"].astype(np.float)/255.0
+            colors[i, :] = colors[i, [2, 1, 0]]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    ax.scatter(px, py, pz, marker="o")
+    ax.scatter(px, py, pz, marker="o", c=colors)
     plt.show()
 
 def toPLY(graph, plyfile):

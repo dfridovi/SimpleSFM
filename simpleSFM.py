@@ -12,21 +12,22 @@ from mpl_toolkits.mplot3d import Axes3D
 import cPickle as pickle
 
 # parameters
-visualize = True
+visualize = False
 RATIO = 0.2
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
 PLYFILE = "model.ply"
 LO_ITER = 20000
 MAX_RMS_ERROR = 15.0
-OUTLIER_MAX_DIST = 10.0
-PERCENT_OUTLIERS = 10.0
+OUTLIER_MAX_DIST = 1.0e3
+PERCENT_OUTLIERS = 2.0
 NOISE_SD = 0.05
-ADJUST_FREQ = 3
+ADJUST_FREQ = 1
 
 # set up
-IMPATH = "Images/TestSeriesWatch/"
-files = [f for f in os.listdir(IMPATH) if (not f.startswith(".") and not f == "model.ply")]
+IMPATH = "Images/TestSeriesMe/"
+files = [f for f in os.listdir(IMPATH) if (not f.startswith(".") 
+         and not f == PLYFILE and not f == PKLFILE)]
 
 frames = {}
 frames["files"] = np.array(files)
@@ -128,7 +129,7 @@ bf.repeatedBundleAdjustment(graph, frames["K"], LO_ITER, ADJUST_FREQ,
                             MAX_RMS_ERROR)
 
 # pickle, just in case
-f = open(PKLFILE, "wb")
+f = open(IMPATH + PKLFILE, "wb")
 pickle.dump(graph, f)
 f.close()
 
