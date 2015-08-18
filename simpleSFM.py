@@ -18,14 +18,15 @@ MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
 PLYFILE = "model.ply"
 LO_ITER = 20000
-MAX_RMS_ERROR = 15.0
-OUTLIER_MAX_DIST = 1.0e3
+MAX_RMS_ERROR = 1.0e-4
+ERROR_CUTOFF = 25.0
+OUTLIER_MAX_DIST = 10.0
 PERCENT_OUTLIERS = 2.0
 NOISE_SD = 0.05
-ADJUST_FREQ = 1
+ADJUST_FREQ = 3
 
 # set up
-IMPATH = "Images/TestSeriesMe/"
+IMPATH = "Images/TestSeriesPoster/"
 files = [f for f in os.listdir(IMPATH) if (not f.startswith(".") 
          and not f == PLYFILE and not f == PKLFILE)]
 
@@ -64,11 +65,11 @@ for i in range(1, frames["num_images"]):
     img1 = cv2.imread(IMPATH + frames["files"][i - 1])
     img2 = cv2.imread(IMPATH + frames["files"][i])
 
-    img1 = np.flipud(np.fliplr(cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)))
-    img2 = np.flipud(np.fliplr(cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)))
+#    img1 = np.flipud(np.fliplr(cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)))
+#    img2 = np.flipud(np.fliplr(cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)))
 
-#    img1 = cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)
-#    img2 = cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)
+    img1 = cv2.resize(img1, dsize=(0, 0), fx=RATIO, fy=RATIO)
+    img2 = cv2.resize(img2, dsize=(0, 0), fx=RATIO, fy=RATIO)
 
     frames["images"].append(img1)
     if i == frames["num_images"] - 1:
@@ -113,7 +114,7 @@ for i in range(1, frames["num_images"]):
     print "Repeated pairwise bundle adjustment..."
     bf.repeatedBundleAdjustment(pair, frames["K"], LO_ITER, ADJUST_FREQ,
                                 NOISE_SD, PERCENT_OUTLIERS, OUTLIER_MAX_DIST,
-                                MAX_RMS_ERROR)
+                                MAX_RMS_ERROR, ERROR_CUTOFF)
     lastRt = pair["motion"][1]
 
     # add pair
@@ -126,7 +127,7 @@ bf.finalizeGraph(graph, frames)
 print "Repeated global bundle adjustment..."
 bf.repeatedBundleAdjustment(graph, frames["K"], LO_ITER, ADJUST_FREQ,
                             NOISE_SD, PERCENT_OUTLIERS, OUTLIER_MAX_DIST, 
-                            MAX_RMS_ERROR)
+                            MAX_RMS_ERROR, ERROR_CUTOFF)
 
 # pickle, just in case
 f = open(IMPATH + PKLFILE, "wb")

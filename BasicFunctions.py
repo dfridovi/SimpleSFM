@@ -171,7 +171,7 @@ def finalizeGraph(graph, frames):
         entry["color"] = color.astype(np.uint8)
 
 def repeatedBundleAdjustment(graph, K, niter, freq, sd, 
-                             percent_outliers, outlier_max_dist, max_err):
+                             percent_outliers, outlier_max_dist, max_err, cutoff):
     """ Perform repeated bundle adjustment. """
 
     cnt = 0
@@ -182,14 +182,14 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
         # every few rounds, remove outliers and jitter the initialization
         if cnt % freq == 0:
             outlierRejection(graph, K, percent_outliers, outlier_max_dist)
-            error = bundleAdjustment(graph, K, niter, sd)
+            error = bundleAdjustment(graph, K, niter, sd, cutoff)
         else:
-            error = bundleAdjustment(graph, K, niter)
+            error = bundleAdjustment(graph, K, niter, 0.0, cutoff)
         
         if error < max_err:
             break
 
-    outlierRejection(graph, K, percent_outliers, outlier_max_dist)
+    #outlierRejection(graph, K, percent_outliers, outlier_max_dist)
 
 
 
