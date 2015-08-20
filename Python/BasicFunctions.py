@@ -181,7 +181,7 @@ def repeatedBundleAdjustment(graph, K, niter, freq, sd,
 
         # every few rounds, remove outliers and jitter the initialization
         if cnt % freq == 0:
-            outlierRejection(graph, K, percent_outliers, outlier_max_dist)
+#            outlierRejection(graph, K, percent_outliers, outlier_max_dist)
             error = bundleAdjustment(graph, K, niter, sd, cutoff)
         else:
             error = bundleAdjustment(graph, K, niter, 0.0, cutoff)
