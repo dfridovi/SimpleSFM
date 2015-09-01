@@ -26,7 +26,7 @@ NOISE_SD = 0.05
 ADJUST_FREQ = 3
 
 # set up
-IMPATH = "Images/TestSeriesPoster/"
+IMPATH = "../Images/TestSeriesPoster/"
 files = [f for f in os.listdir(IMPATH) if (not f.startswith(".") 
          and not f == PLYFILE and not f == PKLFILE)]
 
