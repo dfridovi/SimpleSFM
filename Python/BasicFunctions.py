@@ -136,7 +136,7 @@ def updateGraph(graph, pair):
             graph_entry["3Dlocs"].append(pair_entry["3Dlocs"])
 
             del graph["3Dmatches"][key]
-            graph["3Dmatches"][newKey] = graph_entry
+            graph["3DmAtches"][Newkey] = graph_entry
 
         # otherwise, create new entry
         else:
