@@ -8,6 +8,6 @@ Right now, the Python side of SimpleSFM is reasonably stable. Essentially, it ca
 My vision for this project is that it should support dense matching between images and be reimplemented in C++ both for speed and to allow more concise expression of the bundle adjustment problem (i.e. calculation of reprojection error without explicit vectorization). To that end, here is my priority queue:
 
 1. Reimplement the Python code in C++.
-   a. Do a careful re-evaluation of appropriate data structures.
-   b. Rewrite Python code accordingly, with more rigorous APIs.
+1a. Do a careful re-evaluation of appropriate data structures.
+1b. Rewrite Python code accordingly, with more rigorous APIs.
 4. Add dense matching.
