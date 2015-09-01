@@ -88,7 +88,7 @@ for i in range(1, frames["num_images"]):
     # store all the good matches as per Lowe's ratio test.
     good_matches = []
     for m, n in matches:
-        if m.distance < 0.7 * n.distance:
+        if m.distance < 0.8 * n.distance:
             good_matches.append(m)
 
     # estimate F if sufficient good matches
