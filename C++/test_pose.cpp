@@ -19,5 +19,10 @@ int main(void) {
   Pose p = Pose(R, t);
   p.print(cout);
 
+  p.toAxisAngle();
+  p.fromAxisAngle();
+
+  p.print(cout);
+
   return 0;
 }

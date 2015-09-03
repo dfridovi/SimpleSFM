@@ -17,7 +17,7 @@ class Pose {
 
 private:
   Matrix4d Rt; // 4x4 homogeneous Pose matrix
-  double* aa; // axis-angle representation
+  Vector3d aa; // axis-angle representation
 
 public:
   
@@ -37,10 +37,8 @@ public:
   // Print to StdOut.
   ostream& print(ostream&);
 
-private:
-
   // Convert to axis-angle representation.
-  double* toAxisAngle();
+  VectorXd toAxisAngle();
 
   // Convert to matrix representation.
   Matrix4d fromAxisAngle();

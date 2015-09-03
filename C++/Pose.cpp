@@ -10,26 +10,18 @@
 using namespace Eigen;
 using namespace std;
 
-/*
-private:
-  Matrix4d Rt; // 4x4 homogeneous Pose matrix
-  Vector6d aa; // axis-angle representation
-*/
-
 // Construct a new Pose from a rotation matrix and translation vector.
 Pose::Pose(Matrix3d R, Vector3d t) {
   Rt = Matrix4d::Identity();
   Rt.block(0, 0, 3, 3) = R;
   Rt.col(3).head(3) = t;
   
-  aa = new double[6];
+  aa = Vector3d::Zero();
 }
 
 // Destroy this Pose.
 Pose::~Pose() {
   cout << "Deleting Pose..." << endl;
-
-  delete[] aa;
 }
 
 // Project a 3D point into this Pose.
@@ -51,24 +43,47 @@ void Pose::compose(Pose p) {
 }
 
 // Convert to axis-angle representation.
-double* Pose::toAxisAngle() {
+VectorXd Pose::toAxisAngle() {
+  
+  // from https://en.wikipedia.org/wiki/Axis-angle-representation
+  double angle = acos(0.5 * (Rt.trace() - 2.0));
+  Vector3d axis = Vector3d(Rt(2, 1) - Rt(1, 2),
+			   Rt(0, 2) - Rt(2, 0),
+			   Rt(1, 0) - Rt(0, 1)) * 0.5 / sin(angle);
+
+  aa = axis * angle;
   return aa;
 }
 
 // Convert to matrix representation.
 Matrix4d Pose::fromAxisAngle() {
+
+  // from https://en.wikipedia.org/wiki/Rotation_matrix
+  double angle = aa.norm();
+  Vector3d axis = aa / angle;
+
+  Matrix3d cross;
+  cross << 
+    0.0, -axis(2), axis(1),
+    axis(2), 0.0, -axis(0),
+    -axis(1), axis(0), 0.0;
+
+  Matrix3d tensor;
+  tensor << 
+    axis(0)*axis(0), axis(0)*axis(1), axis(0)*axis(2),
+    axis(0)*axis(1), axis(1)*axis(1), axis(1)*axis(2),
+    axis(0)*axis(2), axis(1)*axis(2), axis(2)*axis(2);
+
+  Matrix3d R = cos(angle) * Matrix3d::Identity() + sin(angle) * cross + (1-cos(angle)) * tensor;
+  Rt.block(0, 0, 3, 3) = R;
+
   return Rt;
 }
 
 // Print to StdOut.
 ostream& Pose::print(ostream& o)  {
   o << "Pose matrix:\n" << Rt << endl;
-  o << "Pose axis-angle:\n";
-
-  for (int i = 0; i < 6; i++)
-    o << aa[i] << " ";
-
-  o << endl;
+  o << "Pose axis-angle:\n" << aa << endl;
 
   return o;
 }
