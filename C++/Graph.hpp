@@ -8,18 +8,34 @@
 
 #include <Eigen/Dense>
 #include <iostream>
+#include "Pose.hpp"
 
 using namespace Eigen;
 using namespace std;
+using namespace Pose;
 
 class Graph {
 
-  // --------------------- FINISH THIS!! ------------------------
 private:
-  
+  unordered_map<Vector2i, list<int>> match_frames;
+  unordered_map<Vector2i, list<Vector2i>> match_2Dlocs;
+  unordered_map<Vector2i, list<Vector3d>> match_3Dlocs;
+  list<Pose> motion;
+  int frame_offset;
 
 public:
-  
+
+  // Create a new Graph from two Poses and a frame offset..
+  Graph(Pose, Pose, int);
+
+  // Destroy this Graph.
+  ~Graph();
+
+  // Combine a Graph with a "pair" (Graph with only two Poses).
+  void updateGraph(Graph);
+
+  // Calculate reprojection error for this Graph.
+  double reprojectionError();
 }
 
 #endif

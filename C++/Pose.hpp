@@ -17,12 +17,15 @@ class Pose {
 
 private:
   Matrix4d Rt; // 4x4 homogeneous Pose matrix
-  Vector6d aa; // axis-angle representation
+  double* aa; // axis-angle representation
 
 public:
   
   // Construct a new Pose from a rotation matrix and translation vector.
   Pose(Matrix3d, Vector3d);
+
+  // Destroy this Pose.
+  ~Pose();
 
   // Project a 3D point into this Pose.
   Vector2d project(Vector3d);
@@ -31,12 +34,17 @@ public:
   // specified by the given Pose.
   void compose(Pose);
 
+  // Print to StdOut.
+  ostream& print(ostream&);
+
+private:
+
   // Convert to axis-angle representation.
-  Vector6d toAxisAngle();
+  double* toAxisAngle();
 
   // Convert to matrix representation.
   Matrix4d fromAxisAngle();
 
-}
+};
 
 #endif
