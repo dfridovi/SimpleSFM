@@ -11,7 +11,7 @@ using namespace Eigen;
 using namespace std;
 
 // Construct a new Pose from a rotation matrix and translation vector.
-Pose::Pose(Matrix3d R, Vector3d t) {
+Pose::Pose(Matrix3d &R, Vector3d &t) {
   Rt = Matrix4d::Identity();
   Rt.block(0, 0, 3, 3) = R;
   Rt.col(3).head(3) = t;
@@ -25,7 +25,7 @@ Pose::~Pose() {
 }
 
 // Project a 3D point into this Pose.
-Vector2d Pose::project(Vector3d pt3d) {
+Vector2d Pose::project(Vector3d &pt3d) {
   Vector4d pt3d_h = Vector4d::Constant(1.0);
   pt3d_h.head(3) = pt3d;
   
@@ -38,7 +38,7 @@ Vector2d Pose::project(Vector3d pt3d) {
 
 // Compose this Pose with the given pose so that both refer to the identity Pose as 
 // specified by the given Pose.
-void Pose::compose(Pose p) {
+void Pose::compose(Pose &p) {
   Rt *= p.Rt;
 }
 
@@ -51,7 +51,9 @@ VectorXd Pose::toAxisAngle() {
 			   Rt(0, 2) - Rt(2, 0),
 			   Rt(1, 0) - Rt(0, 1)) * 0.5 / sin(angle);
 
+  axis /= axis.norm();
   aa = axis * angle;
+
   return aa;
 }
 
@@ -81,10 +83,8 @@ Matrix4d Pose::fromAxisAngle() {
 }
 
 // Print to StdOut.
-ostream& Pose::print(ostream& o)  {
-  o << "Pose matrix:\n" << Rt << endl;
-  o << "Pose axis-angle:\n" << aa << endl;
-
-  return o;
+void Pose::print()  {
+  cout << "Pose matrix:\n" << Rt << endl;
+  cout << "Pose axis-angle:\n" << aa << endl;
 }
 

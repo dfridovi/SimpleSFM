@@ -22,20 +22,20 @@ private:
 public:
   
   // Construct a new Pose from a rotation matrix and translation vector.
-  Pose(Matrix3d, Vector3d);
+  Pose(Matrix3d &, Vector3d &);
 
   // Destroy this Pose.
   ~Pose();
 
   // Project a 3D point into this Pose.
-  Vector2d project(Vector3d);
+  Vector2d project(Vector3d &);
 
   // Compose this Pose with the given pose so that both refer to the identity Pose as 
   // specified by the given Pose.
-  void compose(Pose);
+  void compose(Pose &);
 
   // Print to StdOut.
-  ostream& print(ostream&);
+  void print();
 
   // Convert to axis-angle representation.
   VectorXd toAxisAngle();
