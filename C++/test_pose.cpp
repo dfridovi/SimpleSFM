@@ -10,7 +10,11 @@ using namespace Eigen;
 using namespace std;
 
 int main(void) {
-  Matrix3d R1 = Matrix3d::Random();
+  Matrix3d R1;
+  R1 << 
+    cos(0.5), -sin(0.5), 0,
+    sin(0.5), cos(0.5), 0,
+    0, 0, 1;
   Vector3d t1 = Vector3d::Random();
   Pose p1 = Pose(R1, t1);
   p1.print();

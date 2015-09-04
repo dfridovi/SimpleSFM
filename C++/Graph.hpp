@@ -32,6 +32,8 @@ private:
 
 public:
 
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   // Create a new Graph "pair" from two Poses, a frame offset, and an OpenCV keypoint match vector.
   Graph(Pose &, Pose &, int, vector<DMatch> &);
 

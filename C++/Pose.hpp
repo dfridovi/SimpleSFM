@@ -20,6 +20,8 @@ private:
   Vector3d aa; // axis-angle representation
 
 public:
+
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   
   // Construct a new Pose from a rotation matrix and translation vector.
   Pose(Matrix3d &, Vector3d &);
