@@ -70,12 +70,26 @@ int main(int argc, char *argv[]) {
       return -1; 
     }
 
-    cv::ORB detector;
+    // detect and compute keypoints and descriptors
+    cv::ORB orb;
 
     vector<cv::KeyPoint> kp1, kp2;
+    cv::Mat des1, des2;
 
-    detector.detect(img1, kp1);
-    detector.detect(img2, kp2);
+    orb.detect(img1, kp1); orb.compute(img1, kp1, des1);
+    orb.detect(img2, kp2); orb.compute(img2, kp2, des2);
+
+    // print out some summary information
+    cout << "Found " << kp1.size() << " keypoints in image 1." << endl;
+    cout << "des1 shape: (" << des1.rows << ", " << des1.cols << ")" << endl;
+
+    cout << "Found " << kp2.size() << " keypoints in image 2." << endl;
+    cout << "des2 shape: (" << des2.rows << ", " << des2.cols << ")" << endl;
+
+    // do keypoint matching
+    cv::BFMatcher matcher;
+    vector<vector<cv::DMatch>> matches;
+    matcher.knnMatch(des1, des2, matches, 2);
   }
 
   return 0;
