@@ -15,6 +15,9 @@
 using namespace std;
 namespace fs = boost::filesystem;
 
+#define LOWE_RATIO 0.8
+#define MIN_MATCHES 10
+
 void usage(char *argv[]) {
   cerr << "Usage: " << argv[0] << " PATH_TO_IMAGES" << endl;
 }
@@ -79,17 +82,32 @@ int main(int argc, char *argv[]) {
     orb.detect(img1, kp1); orb.compute(img1, kp1, des1);
     orb.detect(img2, kp2); orb.compute(img2, kp2, des2);
 
-    // print out some summary information
-    cout << "Found " << kp1.size() << " keypoints in image 1." << endl;
-    cout << "des1 shape: (" << des1.rows << ", " << des1.cols << ")" << endl;
-
-    cout << "Found " << kp2.size() << " keypoints in image 2." << endl;
-    cout << "des2 shape: (" << des2.rows << ", " << des2.cols << ")" << endl;
-
     // do keypoint matching
     cv::BFMatcher matcher;
     vector<vector<cv::DMatch>> matches;
     matcher.knnMatch(des1, des2, matches, 2);
+
+    // apply Lowe's ratio test and filter out only good matches
+    vector<cv::DMatch> good_matches;
+    for (int i = 0; i < matches.size(); i++) {
+      vector<cv::DMatch> matches_entry = matches[i];
+
+      // ensure that there are two matches for this keypoint
+      if (matches_entry.size() != 2)
+	cerr << "Keypoint " << i << " does not have enough match candidates." << endl;
+
+      // handle default case
+      else {
+	cv::DMatch m1 = matches_entry[0];
+	cv::DMatch m2 = matches_entry[1];
+
+	if (m1.distance < LOWE_RATIO * m2.distance)
+	  good_matches.push_back(m1);
+      }
+    }
+   
+    // print out number of good matches
+    cout << "Found " << good_matches.size() << " good matches." << endl;
   }
 
   return 0;
