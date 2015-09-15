@@ -23,6 +23,8 @@ namespace fs = boost::filesystem;
 #define MIN_MATCHES 10
 #define VISUALIZE true
 #define RATIO 0.25
+#define F_DIST 3.0
+#define F_CONF 0.95
 
 void usage(char *argv[]) {
   cerr << "Usage: " << argv[0] << " PATH_TO_IMAGES" << endl;
@@ -83,6 +85,12 @@ int main(int argc, char *argv[]) {
     cv::Mat img1_big = cv::imread(img_files[i-1], CV_LOAD_IMAGE_GRAYSCALE);
     cv::Mat img2_big = cv::imread(img_files[i], CV_LOAD_IMAGE_GRAYSCALE);
 
+    // ensure non-zero size (no read errors)
+    if (!img1_big.cols || !img2_big.cols) {
+      cerr << "Error reading files... skipping this pair." << endl;
+      continue;
+    }
+
     cv::Mat img1; cv::Mat img2;
     cv::resize(img1_big, img1, cv::Size(), RATIO, RATIO);
     cv::resize(img2_big, img2, cv::Size(), RATIO, RATIO);
@@ -130,10 +138,11 @@ int main(int argc, char *argv[]) {
     
     // skip if there are not enough good matches
     if (good_matches.size() < MIN_MATCHES) {
-      cout << "Not enough good matches." << endl;
+      cerr << "Not enough good matches." << endl;
       continue;
     }
 
+    
     // estimate fundamental matrix F
     vector<cv::Point2f> pts1(good_matches.size());
     vector<cv::Point2f> pts2(good_matches.size());
@@ -143,15 +152,15 @@ int main(int argc, char *argv[]) {
       pts1[i] = kp1[m.queryIdx].pt;
       pts2[i] = kp2[m.trainIdx].pt;
     }
-
-    vector<bool> mask(good_matches.size());
-    cv::Mat F = cv::findFundamentalMat(pts1, pts2, cv::FM_RANSAC, 3, 0.99, mask);
     
+    cv::Mat mask;
+    cv::Mat F = cv::findFundamentalMat(pts1, pts2, cv::FM_RANSAC, F_DIST, F_CONF, mask);
+
     vector<cv::DMatch> inliers;
     for (int i = 0; i < good_matches.size(); i++) {
-      if (mask[i]) inliers.push_back(good_matches[i]);
+      if (mask.at<int>(i, 0)) inliers.push_back(good_matches[i]);
     }
-
+    
     // visualize if desired
     if (VISUALIZE) {
       cv::Mat visual;
