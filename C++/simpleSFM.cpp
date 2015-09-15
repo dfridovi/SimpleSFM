@@ -4,7 +4,6 @@
  */
 
 #include <iostream>
-#include <boost/filesystem.hpp>
 
 #include "opencv2/core/core.hpp"
 #include "opencv2/features2d/features2d.hpp"
@@ -12,58 +11,21 @@
 #include "opencv2/calib3d/calib3d.hpp"
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <vector>
-#include <string>
-#include <regex>
+#include "BasicFunctions.hpp"
 
 using namespace std;
-namespace fs = boost::filesystem;
+namespace bf = BasicFunctions;
 
 #define LOWE_RATIO 0.8
-#define MIN_MATCHES 10
-#define VISUALIZE true
+#define MIN_MATCHES 25
+#define MIN_INLIERS 15
+#define VISUALIZE false
 #define RATIO 0.25
 #define F_DIST 3.0
 #define F_CONF 0.95
 
 void usage(char *argv[]) {
   cerr << "Usage: " << argv[0] << " PATH_TO_IMAGES" << endl;
-}
-
-vector<string> getImgFiles(char *path) {
-
-  // parse file names in supplied directory
-  fs::path p(path);
-  vector<string> img_files;
-  regex pattern(".*\\.((JPG)|(jpg)|(jpeg))");
-
-  try {
-    
-    if (fs::exists(p) && fs::is_directory(p)) {
-	
-      // only add file paths if they match the regular expression
-      for (fs::directory_entry &f : fs::directory_iterator(p)) {
-	if (regex_match(f.path().string(), pattern))
-	  img_files.push_back(f.path().string());
-      }
-      
-    }
-    
-    else
-      cout << p << " is not a valid directory.\n";
-  }
-
-  catch (const fs::filesystem_error &ex) {
-      cout << ex.what() << "\n";
-  }
-      
-  // print out the list of file names
-  const int num_files = img_files.size();
-  cout << "Image files:" << endl;
-  for (int i = 0; i < num_files; i++)
-    cout << img_files[i] << endl;
-
-  return img_files;
 }
 
 int main(int argc, char *argv[]) {
@@ -75,7 +37,7 @@ int main(int argc, char *argv[]) {
   }
 
   // get image file names
-  vector<string> img_files = getImgFiles(argv[1]);
+  vector<string> img_files = bf::getImgFiles(argv[1]);
   const int num_files = img_files.size();
 
   // iterate through each pair of consecutive images and find keypoints
@@ -158,9 +120,9 @@ int main(int argc, char *argv[]) {
 
     vector<cv::DMatch> inliers;
     for (int i = 0; i < good_matches.size(); i++) {
-      if (mask.at<int>(i, 0)) inliers.push_back(good_matches[i]);
+      if (mask.at<bool>(i, 0)) inliers.push_back(good_matches[i]);
     }
-    
+
     // visualize if desired
     if (VISUALIZE) {
       cv::Mat visual;
@@ -169,6 +131,14 @@ int main(int argc, char *argv[]) {
       cv::imshow("Inliers after estimating F", visual);
       cv::waitKey(0);
     }
+
+    // skip these frames if insufficient inliers
+    if (inliers.size() < MIN_INLIERS) {
+      cerr << "Not enough inliers." << endl;
+      continue;
+    }
+
+    cout << "Found " << inliers.size() << " inliers." << endl;
 
   }
 

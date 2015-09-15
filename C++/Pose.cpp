@@ -4,8 +4,6 @@
  */
 
 #include "Pose.hpp"
-#include <Eigen/Dense>
-#include <iostream>
 
 using namespace Eigen;
 using namespace std;
