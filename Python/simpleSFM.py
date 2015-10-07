@@ -12,13 +12,14 @@ from mpl_toolkits.mplot3d import Axes3D
 import cPickle as pickle
 
 # parameters
-visualize = False
-RATIO = 0.2
+visualize = True
+RATIO = 0.25
+LOWE_RATIO = 0.9
 MIN_MATCHES = 10
 PKLFILE = "pts3D.pkl"
 PLYFILE = "model.ply"
 LO_ITER = 20000
-MAX_RMS_ERROR = 0.1
+MAX_RMS_ERROR = 0.25
 ERROR_CUTOFF = 50.0
 OUTLIER_MAX_DIST = 10.0
 PERCENT_OUTLIERS = 2.0
@@ -26,7 +27,7 @@ NOISE_SD = 0.05
 ADJUST_FREQ = 3
 
 # set up
-IMPATH = "../Images/TestSeriesPoster/"
+IMPATH = "../Images/TestSeriesCampanile/"
 files = [f for f in os.listdir(IMPATH) if (not f.startswith(".") 
          and not f == PLYFILE and not f == PKLFILE)]
 
@@ -48,7 +49,7 @@ graph["3Dmatches"] = {}
 graph["frameOffset"] = 0
 
 # make an ORB detector
-orb = cv2.ORB()
+orb = cv2.ORB(nfeatures=50000)
 
 # make a brute force matcher
 matcher = cv2.BFMatcher(normType=cv2.NORM_HAMMING)
@@ -88,7 +89,7 @@ for i in range(1, frames["num_images"]):
     # store all the good matches as per Lowe's ratio test.
     good_matches = []
     for m, n in matches:
-        if m.distance < 0.8 * n.distance:
+        if m.distance < LOWE_RATIO * n.distance:
             good_matches.append(m)
 
     # estimate F if sufficient good matches
