@@ -16,10 +16,11 @@
 using namespace std;
 namespace bf = BasicFunctions;
 
+#define NUM_FEATURES 10000
 #define LOWE_RATIO 0.8
 #define MIN_MATCHES 25
 #define MIN_INLIERS 15
-#define VISUALIZE false
+#define VISUALIZE true
 #define RATIO 0.25
 #define F_DIST 3.0
 #define F_CONF 0.95
@@ -63,7 +64,7 @@ int main(int argc, char *argv[]) {
     }
 
     // detect and compute keypoints and descriptors
-    cv::ORB orb;
+    cv::ORB orb(NUM_FEATURES);
 
     vector<cv::KeyPoint> kp1, kp2;
     cv::Mat des1, des2;
@@ -73,7 +74,7 @@ int main(int argc, char *argv[]) {
 
     // do keypoint matching
     cv::BFMatcher matcher;
-    vector<vector<cv::DMatch>> matches;
+    vector< vector<cv::DMatch> > matches;
     matcher.knnMatch(des1, des2, matches, 2);
 
     // apply Lowe's ratio test and filter out only good matches
