@@ -1,6 +1,8 @@
 # SimpleSFM
 A simple structure from motion library.
 
+**Disclaimer** I built this project as an exercise in teaching myself about SfM. I no longer maintain it, and I do not recommend that anyone use it for any purpose other than as a guide for building your own SfM pipeline.
+
 ## Current Status
 Right now, the Python side of SimpleSFM is reasonably stable. Essentially, it can process a series of still images from an iPhone 5 and output an optimized 3D sparse point cloud. It's not particularly fast, but I've done my best to write good, clean, well-documented code. I should add that, in its current incarnation, I can imagine several things that might go wrong in certain cases which might effect the results. However, without better visualization (i.e. involving dense matching) it is very hard, if not impossible to know for certain.
 
